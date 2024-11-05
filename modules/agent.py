@@ -241,8 +241,8 @@ class Agent:
                 screen,
                 # (255, 0, 0),  # Color for the path line (Red)
                 color_list[self.agent_id%len(color_list)], 
-                (int(start_pos.x), int(start_pos.y)),
-                (int(task_position.x), int(task_position.y)),
+                (int(start_pos[0]), int(start_pos[1])),
+                (int(task_position[0]), int(task_position[1])),
                 line_thickness  # Thickness of the line
             )
             # Update the start position for the next segment

@@ -8,7 +8,6 @@
           <DecisionMakingNode/>
           <TaskExecutingNode/>
         </Sequence>
-        <ExplorationNode/>
       </Fallback>
     </Sequence>
   </BehaviorTree>
@@ -16,8 +15,6 @@
   <!-- Description of Node Models (used by Groot) -->
   <TreeNodesModel>
     <Action ID="DecisionMakingNode"
-            editable="true"/>
-    <Action ID="ExplorationNode"
             editable="true"/>
     <Action ID="LocalSensingNode"
             editable="true"/>

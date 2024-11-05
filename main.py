@@ -4,7 +4,7 @@ import argparse
 import cProfile
 import importlib
 
-from modules.utils import pre_render_text, set_config, ResultSaver
+from modules.utils import pre_render_text, set_config, ResultSaver, Ship
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='SPACE (Swarm Planning And Control Evalution) Simulator')
@@ -52,6 +52,20 @@ logo_image_path = 'assets/logo.jpg'  # Change to the path of your logo image
 logo = pygame.image.load(logo_image_path)
 pygame.display.set_icon(logo)
 pygame.display.set_caption('SPACE(Swarm Planning And Control Evaluation) Simulator')  # Change to your desired game title
+
+# Load the background image
+background_image_path = 'modules/models/texture/background.png'  # 배경 이미지 경로
+background_image = pygame.image.load(background_image_path)
+background_image = pygame.transform.scale(background_image, (screen_width, screen_height))  # 화면 크기에 맞게 조정
+
+# Load sea background image for ship area
+sea_background_path = 'modules/models/texture/sea.png'  # 바다 이미지 경로
+sea_background = pygame.image.load(sea_background_path)
+sea_background = pygame.transform.scale(sea_background, (250, 1200))  # 적절한 크기로 조정
+
+# Initialize the Ship object
+ship_image_path = 'modules/models/Ship/ship.png'
+ship = Ship(image_path=ship_image_path, width=350, height=150, x=100, y=screen_height - 650)
 
 # Initialize tasks
 from modules.task import generate_tasks
@@ -162,9 +176,14 @@ async def game_loop():
 
             # Rendering
             if rendering_mode == "Screen":
-                screen.fill(background_color)
+                #screen.fill(background_color)
+                screen.blit(background_image, (0, 0))  # 배경 이미지로 화면 채우기 
 
+                # Draw sea background under the ship
+                screen.blit(sea_background, (00, screen_height - 1200))  # 배경 위치 조정
 
+                # Draw ship
+                ship.draw(screen)
 
                 # Draw agents network topology
                 if rendering_options.get('agent_communication_topology'):

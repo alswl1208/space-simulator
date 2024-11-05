@@ -10,6 +10,8 @@ import shutil
 import pandas as pd
 import matplotlib.pyplot as plt
 import xml.etree.ElementTree as ET
+import pygame as pg
+#from utils import load_ship_image
 
 def load_config(config_file):
     with open(config_file, 'r') as f:
@@ -259,3 +261,37 @@ class ResultSaver:
             for agent in agents
         ]
         return agentwise_results    
+
+def load_ship_image(path, width, height, rotation=90):
+    """
+    배 이미지를 불러오고 크기를 조정하는 함수.
+    
+    :param path: 배 이미지 경로
+    :param width: 배 이미지 너비
+    :param height: 배 이미지 높이
+    :param rotation: 회전 각도 (기본값은 90도)
+    :return: 배 이미지 객체
+    """
+    ship_image = pg.image.load(path)
+    ship_image = pg.transform.scale(ship_image, (width, height))
+    ship_image = pg.transform.rotate(ship_image, rotation)  # 이미지를 90도 회전
+    return ship_image
+
+class Ship:
+    def __init__(self, image_path, width, height, x, y):
+        """
+        Ship 클래스 생성자
+
+        :param image_path: 배 이미지 경로
+        :param width: 배 이미지 너비
+        :param height: 배 이미지 높이
+        :param x: 배의 x 좌표
+        :param y: 배의 y 좌표
+        """
+        self.image = load_ship_image(image_path, width, height)
+        self.position = pg.math.Vector2(x, y)  # Pygame의 Vector2를 사용해 위치를 설정
+
+    def draw(self, screen):
+        """배 이미지를 화면에 그리는 함수"""
+        screen.blit(self.image, (self.position.x, self.position.y))
+
