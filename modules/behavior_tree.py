@@ -111,19 +111,34 @@ class DecisionMakingNode(SyncAction):
         self.decision_maker = decision_making_class(agent)
 
     def _decide(self, agent, blackboard):
-
-        # 만약 에이전트가 현재 작업을 옮기고 있지 않다면 새로운 작업을 선택
+        # 현재 에이전트의 상태가 loading이 False일 때만 새로운 작업을 찾음
         if not blackboard.get('loading', False):
-            assigned_task_id = self.decision_maker.decide(blackboard)
-            blackboard['assigned_task_id'] = assigned_task_id
-            if assigned_task_id is None:
+            # 다른 에이전트들의 할당된 작업 ID를 확인하여 중복 방지
+            other_agents_assigned_ids = [
+                other_agent.blackboard.get('assigned_task_id') 
+                for other_agent in agent.agents_info if other_agent != agent
+            ]
+
+            # completed가 False이고 다른 에이전트에 할당되지 않은 작업만 선택
+            uncompleted_tasks = [
+                task for task in agent.tasks_info 
+                if not task.completed and task.task_id not in other_agents_assigned_ids
+            ]
+
+            if not uncompleted_tasks:
+                #print(f"Agent {agent.agent_id} - No uncompleted tasks available.")
                 return Status.FAILURE
-            else:
-                # 작업이 할당되면 작업 위치로 이동 준비
-                return Status.SUCCESS
+            
+            # 작업 할당 로직 (예시: 가장 첫 번째 미완료된 작업 선택)
+            assigned_task_id = uncompleted_tasks[0].task_id
+            blackboard['assigned_task_id'] = assigned_task_id
+            #print(f"Agent {agent.agent_id} - Task {assigned_task_id} assigned.")
+            return Status.SUCCESS
         else:
             # 작업을 옮기고 있는 중일 때는 계속 진행
+            #print(f"Agent {agent.agent_id} - Currently carrying a task.")
             return Status.RUNNING
+
 
 from data import container_positions
 from modules.task import Task 
@@ -145,19 +160,19 @@ class TaskExecutingNode(SyncAction):
                 
                 # task.color와 destination 값 출력
                 print(f"Task color: {task.color}")
-                
+                                
                 # task.color가 문자열로 저장되어 있다고 가정하고 목적지 설정
                 if task.color in container_positions:
                     destination = container_positions[task.color]
                     print(f"Destination for task color {task.color}: {destination}")
                 else:
-                    print(f"Error: No matching destination for color {task.color}")
+                    #print(f"Error: No matching destination for color {task.color}")
                     return Status.FAILURE
 
                 agent_position = agent.position
                 
                 if destination is None:
-                    print(f"Error: Destination for color {task.color} not found.")
+                    #print(f"Error: Destination for color {task.color} not found.")
                     return Status.FAILURE  # 목적지를 찾을 수 없으면 실패 반환
                 agent_position = agent.position
                 
@@ -173,9 +188,12 @@ class TaskExecutingNode(SyncAction):
                     blackboard['loading'] = True
                     
                      # 새로운 task 생성 로직
-                    if self.generated_tasks < self.max_tasks:  # 이미 생성된 task 수를 확인
+                    if self.generated_tasks < self.max_tasks and len(agent.tasks_info) < self.max_tasks:  # 이미 생성된 task 수를 확인
                         initial_position = (300, 570)  # 초기 위치 설정
-                        new_task = Task(self.generated_tasks, initial_position)
+                        existing_ids = {task.task_id for task in agent.tasks_info}
+                        new_task_id = max(existing_ids) + 1 if existing_ids else 0  # 최대 task_id에 +1
+
+                        new_task = Task(new_task_id, initial_position)
                         agent.tasks_info.append(new_task)
                         self.generated_tasks += 1
                         print(f"New task {new_task.task_id} generated at {initial_position}")
@@ -194,7 +212,7 @@ class TaskExecutingNode(SyncAction):
                     blackboard['loading'] = False  # 작업 완료 후 플래그를 False로 설정
                     task.completed = True
                     task.complete_task(destination, offset=(200, 100))  # offset 값을 조정하여 위치를 조정  # 목적지 위치에서 작업을 보이게 함
-                    
+                   
                     #  # 새로운 task 생성 로직
                     # if self.generated_tasks < self.max_tasks:  # 이미 생성된 task 수를 확인
                     #     initial_position = (300, 570)  # 초기 위치 설정

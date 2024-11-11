@@ -15,16 +15,16 @@ for color in container_images:
 # 컨테이너 위치 정의
 screen_width = 1200  # 실제 화면 너비가 정의된 변수로 교체
 container_positions = {
-    'red': (screen_width - 100, 120),
+    'red': (screen_width - 100, 110),
     'blue': (screen_width - 100, 110 + container_height + 50),
     'yellow': (screen_width - 100, 110 + 2 * (container_height + 50))
 }
 
 # Task 이미지 딕셔너리 생성
 task_images = {
-    'red': pygame.image.load('modules/models/task/red.png'),
-    'blue': pygame.image.load('modules/models/task/blue.png'),
-    'yellow': pygame.image.load('modules/models/task/yellow.png')
+    'red': pygame.image.load('modules/models/tasks/red.png'),
+    'blue': pygame.image.load('modules/models/tasks/blue.png'),
+    'yellow': pygame.image.load('modules/models/tasks/yellow.png')
 }
 
 task_width = 50  # task 이미지를 위한 너비

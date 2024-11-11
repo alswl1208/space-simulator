@@ -112,6 +112,25 @@ class Agent:
         self.velocity = self.limit(self.velocity, self.max_speed)
         self.position += self.velocity * sampling_time
         self.acceleration *= 0  # Reset acceleration
+        
+        # 경계 설정 (필요에 따라 값 조정)
+        MIN_X, MAX_X = 300, 1200  # X 좌표의 최소, 최대값
+        MIN_Y, MAX_Y = -800, 800  # Y 좌표의 최소, 최대값
+
+        # 경계 검사 및 위치 조정
+        if self.position.x < MIN_X:
+            self.position.x = MIN_X
+            self.velocity.x = 0  # 경계에 도달하면 속도도 0으로 설정
+        elif self.position.x > MAX_X:
+            self.position.x = MAX_X
+            self.velocity.x = 0
+
+        if self.position.y < MIN_Y:
+            self.position.y = MIN_Y
+            self.velocity.y = 0
+        elif self.position.y > MAX_Y:
+            self.position.y = MAX_Y
+            self.velocity.y = 0
 
         # Calculate the distance moved in this update and add to distance_moved
         self.distance_moved += self.velocity.length() * sampling_time
@@ -305,6 +324,41 @@ class Agent:
         
         return local_tasks_info  
     
+    def assign_nearest_task(self):
+        """가장 가까운, 아직 완료되지 않은 작업을 찾고 할당"""
+
+        # 디버깅: self.tasks_info 내용 출력
+        print(f"\nAgent {self.agent_id} - Task Info Check:")
+        for task in self.tasks_info:
+            print(f"  Task ID {task.task_id}, Completed: {task.completed}, Position: {task.position}")
+
+        # 모든 작업 중 완료되지 않은 작업과의 거리 계산 및 정렬
+        tasks_with_distances = [
+            (task, self.position.distance_to(task.position))
+            for task in self.tasks_info
+            if not task.completed and not task.assigned  # 완료되지 않은 작업만 포함
+        ]
+        
+        # 거리가 짧은 순서대로 정렬
+        tasks_with_distances.sort(key=lambda x: x[1])
+
+        # 에이전트별로 완료되지 않은 작업과의 거리 출력
+        if tasks_with_distances:
+            print(f"\nAgent {self.agent_id} - Distances to tasks:")
+            for task, distance in tasks_with_distances:
+                print(f"  Task ID {task.task_id}, Color: {task.color}, Distance: {distance:.2f}")
+            
+            # 가장 가까운 작업 할당
+            nearest_task, min_distance = tasks_with_distances[0]  # 튜플 언패킹을 통해 작업과 거리를 나눠서 저장
+            print(f"Agent {self.agent_id} assigned to Task ID {nearest_task.task_id} (Distance: {min_distance:.2f})")
+            self.set_assigned_task_id(nearest_task.task_id)
+            self.planned_tasks = [nearest_task]  # 시각화를 위해 planned_tasks에 추가
+            #self.follow(nearest_task.position)
+            # 작업을 할당된 상태로 표시
+            nearest_task.assigned = True
+        else:
+            print(f"Agent {self.agent_id} - No available tasks to assign.")
+            
     def update_task_amount_done(self, amount):
         self.task_amount_done += amount
 

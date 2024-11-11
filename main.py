@@ -156,6 +156,7 @@ async def game_loop():
         if not game_paused and not mission_completed:
             # Run behavior trees for each agent without rendering
             for agent in agents:
+                agent.assign_nearest_task() 
                 await agent.run_tree()    
                 agent.update()
 

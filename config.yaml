@@ -24,7 +24,7 @@ decision_making: # Case 2
 
 agents:
   behavior_tree_xml: default_bt.xml 
-  quantity: 2 #10
+  quantity: 3 #10
   locations:
     x_min: 0
     x_max: 1400
@@ -41,7 +41,7 @@ agents:
   random_exploration_duration: 1000.0 # sec
 
 tasks:
-  quantity: 3 #100
+  quantity: 5 #100
   locations:
     x_min: 0
     x_max: 1400
