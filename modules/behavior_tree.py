@@ -171,8 +171,8 @@ class TaskExecutingNode(SyncAction):
                 
                 if distance < agent.tasks_info[assigned_task_id].radius + target_arrive_threshold:
                     # 작업에 도달했을 때, 작업 수집 및 is_loaded 설정
-                    task.hide_task()
-                    agent.tasks_info[assigned_task_id].hide_task()  # 작업을 숨김
+                    task.pick_up_task()
+                    agent.tasks_info[assigned_task_id].pick_up_task()  # 작업을 픽업함
                     blackboard['is_loaded'] = True
                     
                      # 새로운 task 생성 로직
@@ -196,7 +196,7 @@ class TaskExecutingNode(SyncAction):
                     
                     blackboard['is_loaded'] = False  # 작업 완료 후 플래그를 False로 설정
                     task.completed = True
-                    task.show_task(destination, offset=(200, 100))  # offset 값을 조정하여 위치를 조정  # 목적지 위치에서 작업을 보이게 함
+                    task.complete_task(destination, offset=(200, 100))  # offset 값을 조정하여 위치를 조정  # 목적지 위치에서 작업을 보이게 함
                     
                     #  # 새로운 task 생성 로직
                     # if self.generated_tasks < self.max_tasks:  # 이미 생성된 task 수를 확인

@@ -22,18 +22,18 @@ class Task:
         self.color = random.choice(list(task_images.keys()))  # color는 이미지 키에서 선택
         self.image = task_images[self.color]  # 선택된 color에 해당하는 이미지 할당
         print(f"Selected task color: {self.color}")  # 디버깅용 출력
-        self.visible = True
+        self.loading = False
 
-    def hide_task(self):
+    def pick_up_task(self):
         """작업을 숨기는 메서드"""
-        self.visible = False  # 작업이 보이지 않도록 설정
-        print(f"Task {self.task_id} is now hidden.")
+        self.loading = True  # 작업이 보이지 않도록 설정
+        print(f"Task {self.task_id} is now picked up.")
 
-    def show_task(self, new_position, offset=(0,0)):
+    def complete_task(self, new_position, offset=(0,0)):
         """작업을 새로운 위치에서 다시 나타나게 하는 메서드"""
         self.position = pygame.Vector2(new_position[0] + offset[0], new_position[1] + offset[1])  # 위치 조정
-        self.visible = True  # 작업을 다시 보이게 설정
-        print(f"Task {self.task_id} is now visible at {new_position}.")
+        self.loading = False  # 작업을 다시 보이게 설정
+        print(f"Task {self.task_id} is now completed at {new_position}.")
 
     def set_done(self):
         self.completed = True
@@ -49,11 +49,11 @@ class Task:
            #pygame.draw.circle(screen, self.color, self.position, int(self.radius))
         #if self.visible:  # visible 상태일 때만 그리기
             #pygame.draw.circle(screen, self.color, self.position, int(self.radius))
-        if self.visible:  # visible 상태일 때만 그리기
+        if not self.loading:  # loading 상태가 아닐때만 그리기
             screen.blit(self.image, (self.position[0] - container_width // 2, self.position[1] - container_height // 2))
 
     def draw_task_id(self, screen):
-        if not self.completed and self.visible: # visible 상태 체크 추가
+        if not self.completed and not self.loading: # 상태 체크 추가
             font = pygame.font.Font(None, 15)
             text_surface = font.render(f"task_id {self.task_id}: {self.amount:.2f}", True, (250, 250, 250))
             screen.blit(text_surface, (self.position[0], self.position[1]))
