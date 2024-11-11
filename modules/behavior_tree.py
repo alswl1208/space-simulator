@@ -76,6 +76,7 @@ class SyncAction(Node):
 import importlib
 from modules.utils import config
 from plugins.my_decision_making_plugin import *
+
 target_arrive_threshold = config['tasks']['threshold_done_by_arrival']
 task_locations = config['tasks']['locations']
 sampling_freq = config['simulation']['sampling_freq']
@@ -127,16 +128,42 @@ class DecisionMakingNode(SyncAction):
             # 작업을 옮기고 있는 중일 때는 계속 진행
             return Status.RUNNING
 
+from data import container_positions
+from modules.task import Task 
+
 # Task executing node
 class TaskExecutingNode(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._execute_task)
-        self.destination = (488,710)  # 목적지 위치
+        self.max_tasks = config['tasks']['quantity']  # config에서 최대 task 수 가져오기
+        self.generated_tasks = 1  # 생성된 task 수를 추적
 
-    def _execute_task(self, agent, blackboard):        
-        assigned_task_id = blackboard.get('assigned_task_id')        
+    def _execute_task(self, agent, blackboard):   
+        assigned_task_id = blackboard.get('assigned_task_id') 
+
         if assigned_task_id is not None:
-            agent_position = agent.position
+            task = agent.tasks_info[assigned_task_id]  # 혹은 다른 방법으로 작업 객체를 가져오기
+
+            if task:
+                
+                # task.color와 destination 값 출력
+                print(f"Task color: {task.color}")
+                
+                # task.color가 문자열로 저장되어 있다고 가정하고 목적지 설정
+                if task.color in container_positions:
+                    destination = container_positions[task.color]
+                    print(f"Destination for task color {task.color}: {destination}")
+                else:
+                    print(f"Error: No matching destination for color {task.color}")
+                    return Status.FAILURE
+
+                agent_position = agent.position
+                
+                if destination is None:
+                    print(f"Error: Destination for color {task.color} not found.")
+                    return Status.FAILURE  # 목적지를 찾을 수 없으면 실패 반환
+                agent_position = agent.position
+                
             next_waypoint = agent.tasks_info[assigned_task_id].position
              # 에이전트가 작업 위치로 이동
             if not blackboard.get('is_loaded', False):
@@ -144,8 +171,18 @@ class TaskExecutingNode(SyncAction):
                 
                 if distance < agent.tasks_info[assigned_task_id].radius + target_arrive_threshold:
                     # 작업에 도달했을 때, 작업 수집 및 is_loaded 설정
+                    task.hide_task()
                     agent.tasks_info[assigned_task_id].hide_task()  # 작업을 숨김
                     blackboard['is_loaded'] = True
+                    
+                     # 새로운 task 생성 로직
+                    if self.generated_tasks < self.max_tasks:  # 이미 생성된 task 수를 확인
+                        initial_position = (300, 570)  # 초기 위치 설정
+                        new_task = Task(self.generated_tasks, initial_position)
+                        agent.tasks_info.append(new_task)
+                        self.generated_tasks += 1
+                        print(f"New task {new_task.task_id} generated at {initial_position}")
+
                     return Status.RUNNING
 
                 agent.follow(next_waypoint)
@@ -153,20 +190,26 @@ class TaskExecutingNode(SyncAction):
 
             # 작업을 수집한 후, 목적지로 이동
             elif blackboard.get('is_loaded', False):
-                distance_to_dest = math.sqrt((self.destination[0] - agent_position[0])**2 + (self.destination[1] - agent_position[1])**2)
+                distance_to_dest = math.sqrt((destination[0] - agent_position[0])**2 + (destination[1] - agent_position[1])**2)
                 
                 if distance_to_dest < target_arrive_threshold:
                     
                     blackboard['is_loaded'] = False  # 작업 완료 후 플래그를 False로 설정
-
-                    # 작업을 목적지에 옮기고 완료
-                    agent.tasks_info[assigned_task_id].completed = True
-                    agent.tasks_info[assigned_task_id].show_task(self.destination)  # 작업을 목적지에서 다시 생성
+                    task.completed = True
+                    task.show_task(destination, offset=(200, 100))  # offset 값을 조정하여 위치를 조정  # 목적지 위치에서 작업을 보이게 함
                     
+                    #  # 새로운 task 생성 로직
+                    # if self.generated_tasks < self.max_tasks:  # 이미 생성된 task 수를 확인
+                    #     initial_position = (300, 570)  # 초기 위치 설정
+                    #     new_task = Task(self.generated_tasks, initial_position)
+                    #     agent.tasks_info.append(new_task)
+                    #     self.generated_tasks += 1
+                    #     print(f"New task {new_task.task_id} generated at {initial_position}")
+
                     return Status.SUCCESS
                 
                 # 목적지로 이동
-                agent.follow(self.destination)
+                agent.follow(destination)
                 return Status.RUNNING
 
         return Status.FAILURE

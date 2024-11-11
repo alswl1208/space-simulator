@@ -67,8 +67,25 @@ sea_background = pygame.transform.scale(sea_background, (250, 1200))  # 적절�
 ship_image_path = 'modules/models/Ship/ship.png'
 ship = Ship(image_path=ship_image_path, width=350, height=150, x=100, y=screen_height - 650)
 
+# Load container images
+container_images = {
+    'red': pygame.image.load('modules/models/Containers/red.png'),
+    'blue': pygame.image.load('modules/models/Containers/blue.png'),
+    'yellow': pygame.image.load('modules/models/Containers/yellow.png')
+}
+
+# Resize container images
+container_width = 100
+container_height = 200
+for color in container_images:
+    container_images[color] = pygame.transform.scale(container_images[color], (container_width, container_height))
+
+# Define container positions
+container_positions = [(screen_width - 100, 110 + i * (container_height + 50)) for i in range(len(container_images))]
+
 # Initialize tasks
 from modules.task import generate_tasks
+max_task_count = config['tasks']['quantity']  # config.yaml에 정의된 task 수
 tasks = generate_tasks()
 
 # Initialize agents with behavior trees, giving them the information of current tasks
@@ -145,9 +162,13 @@ async def game_loop():
             # Status retrieval
             simulation_time += sampling_time
             tasks_left = sum(1 for task in tasks if not task.completed)
-            if tasks_left == 0:
-                mission_completed = not generation_enabled or generation_count == max_generations
-
+            if tasks_left == 0 and len(tasks) < max_task_count:
+                new_task = generate_tasks(task_id_start=len(tasks))
+                tasks.append(new_task)
+                print(f"New Task {new_task.task_id_start} generated at {new_task.position}")
+            elif len(tasks) == max_task_count and tasks_left == 0:
+                mission_completed = True  # 모든 작업이 완료되면 미션 종료
+            
             # Dynamic task generation
             if generation_enabled and generation_count < max_generations:                
                 if simulation_time - last_generation_time >= generation_interval:
@@ -185,6 +206,10 @@ async def game_loop():
                 # Draw ship
                 ship.draw(screen)
 
+                # Draw containers
+                for i, (color, position) in enumerate(zip(container_images, container_positions)):
+                    screen.blit(container_images[color], position)
+                    
                 # Draw agents network topology
                 if rendering_options.get('agent_communication_topology'):
                     for agent in agents:
