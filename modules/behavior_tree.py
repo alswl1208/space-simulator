@@ -98,12 +98,9 @@ class LocalSensingNode(SyncAction):
         blackboard['local_agents_info'] = agent.local_message_receive()
         #current_position = agent.position
         blackboard['current_position'] = agent.position  # 에이전트의 현재 위치를 블랙보드에 저장
-        # 현재 위치 출력
-        #print(f"Current Position: {current_position}")
-        #print(f"Local tasks: {blackboard['local_tasks_info']}")  # 작업 정보 출력
-        # 작업을 옮기고 있는지 여부를 초기화
-        if 'is_loaded' not in blackboard:
-            blackboard['is_loaded'] = False
+        
+        if 'loading' not in blackboard:
+            blackboard['loading'] = False
 
         return Status.SUCCESS
     
@@ -116,7 +113,7 @@ class DecisionMakingNode(SyncAction):
     def _decide(self, agent, blackboard):
 
         # 만약 에이전트가 현재 작업을 옮기고 있지 않다면 새로운 작업을 선택
-        if not blackboard.get('is_loaded', False):
+        if not blackboard.get('loading', False):
             assigned_task_id = self.decision_maker.decide(blackboard)
             blackboard['assigned_task_id'] = assigned_task_id
             if assigned_task_id is None:
@@ -166,14 +163,14 @@ class TaskExecutingNode(SyncAction):
                 
             next_waypoint = agent.tasks_info[assigned_task_id].position
              # 에이전트가 작업 위치로 이동
-            if not blackboard.get('is_loaded', False):
+            if not blackboard.get('loading', False):
                 distance = math.sqrt((next_waypoint[0] - agent_position[0])**2 + (next_waypoint[1] - agent_position[1])**2)
                 
                 if distance < agent.tasks_info[assigned_task_id].radius + target_arrive_threshold:
-                    # 작업에 도달했을 때, 작업 수집 및 is_loaded 설정
+                    # 작업에 도달했을 때, 작업 수집 및 loading 설정
                     task.pick_up_task()
                     agent.tasks_info[assigned_task_id].pick_up_task()  # 작업을 픽업함
-                    blackboard['is_loaded'] = True
+                    blackboard['loading'] = True
                     
                      # 새로운 task 생성 로직
                     if self.generated_tasks < self.max_tasks:  # 이미 생성된 task 수를 확인
@@ -189,12 +186,12 @@ class TaskExecutingNode(SyncAction):
                 return Status.RUNNING
 
             # 작업을 수집한 후, 목적지로 이동
-            elif blackboard.get('is_loaded', False):
+            elif blackboard.get('loading', False):
                 distance_to_dest = math.sqrt((destination[0] - agent_position[0])**2 + (destination[1] - agent_position[1])**2)
                 
                 if distance_to_dest < target_arrive_threshold:
                     
-                    blackboard['is_loaded'] = False  # 작업 완료 후 플래그를 False로 설정
+                    blackboard['loading'] = False  # 작업 완료 후 플래그를 False로 설정
                     task.completed = True
                     task.complete_task(destination, offset=(200, 100))  # offset 값을 조정하여 위치를 조정  # 목적지 위치에서 작업을 보이게 함
                     
