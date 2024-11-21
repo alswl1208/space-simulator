@@ -46,9 +46,27 @@ class Agent:
         self.assigned_task_id = None         # Local decision-making result.
         self.planned_tasks = []              # Local decision-making result.
         
-
         self.distance_moved = 0.0
         self.task_amount_done = 0.0        
+
+        # 기존 초기화 코드
+        self.image = pygame.image.load('modules/models/Agents/agent.png')  # 기본 이미지
+        self.image = pygame.transform.scale(self.image, (50, 50))  # 크기 조정
+        self.task_color = None  # 현재 운반 중인 task 색상 (없으면 None)
+
+    def update_image(self):
+        """현재 상태에 따라 이미지를 업데이트"""
+        if self.task_color == 'red':
+            self.image = pygame.image.load('modules/models/Agents/agent_with_red_container.png')
+        elif self.task_color == 'blue':
+            self.image = pygame.image.load('modules/models/Agents/agent_with_blue_container.png')
+        elif self.task_color == 'yellow':
+            self.image = pygame.image.load('modules/models/Agents/agent_with_yellow_container.png')
+        else:
+            self.image = pygame.image.load('modules/models/Agents/agent.png')  # 기본 이미지
+
+        # 이미지 크기 조정
+        self.image = pygame.transform.scale(self.image, (50, 50))
 
     def create_behavior_tree(self):
         self.tree = self._create_behavior_tree()
@@ -87,21 +105,34 @@ class Agent:
         return await self.tree.run(self, self.blackboard)
 
     def follow(self, target):
-        # Calculate desired velocity
-        desired = target - self.position
-        d = desired.length()
+        # Ensure target is a pygame.Vector2 object
+        if not isinstance(target, pygame.Vector2):
+            target = pygame.Vector2(target)
 
-        if d < agent_approaching_to_target_radius:
-            # Apply arrival behavior
-            desired.normalize_ip()
-            desired *= self.max_speed * (d / agent_approaching_to_target_radius)  # Adjust speed based on distance
-        else:
+        # Current position
+        current_pos = self.position
+
+        # 목표 경로를 수직 및 수평으로 나눔
+        horizontal_target = pygame.Vector2(target.x, current_pos.y)  # 수평 이동
+        vertical_target = pygame.Vector2(target.x, target.y)        # 수직 이동
+
+        # 현재 위치와 수평 목표 위치 사이의 거리 계산
+        if abs(current_pos.x - target.x) > 1:  # 수평으로 이동이 필요하다면
+            desired = horizontal_target - current_pos
+        else:  # 수평으로 정렬된 후 수직 이동
+            desired = vertical_target - current_pos
+
+        # Normalize and apply speed
+        if desired.length() > 0:
             desired.normalize_ip()
             desired *= self.max_speed
 
+        # Calculate steering force
         steer = desired - self.velocity
         steer = self.limit(steer, self.max_accel)
         self.applyForce(steer)
+
+
 
     def applyForce(self, force):
         self.acceleration += force
@@ -183,6 +214,10 @@ class Agent:
         size = 10
         angle = self.rotation
 
+        rotated_image = pygame.transform.rotate(self.image, -math.degrees(self.rotation))
+        new_rect = rotated_image.get_rect(center=(self.position.x, self.position.y))
+        screen.blit(rotated_image, new_rect.topleft)
+        
         # Calculate the triangle points based on the current position and angle
         p1 = pygame.Vector2(self.position.x + size * math.cos(angle), self.position.y + size * math.sin(angle))
         p2 = pygame.Vector2(self.position.x + size * math.cos(angle + 2.5), self.position.y + size * math.sin(angle + 2.5))
@@ -256,16 +291,30 @@ class Agent:
         # Iterate over the assigned tasks and draw lines connecting them
         for task in self.planned_tasks:
             task_position = task.position
+            # 수직 및 수평 경로를 생성
+            horizontal_pos = (task_position.x, start_pos.y)  # 수평으로 이동
+            vertical_pos = (task_position.x, task_position.y)  # 수직으로 이동
+            # 수평 경로 그리기
             pygame.draw.line(
                 screen,
-                # (255, 0, 0),  # Color for the path line (Red)
-                color_list[self.agent_id%len(color_list)], 
-                (int(start_pos[0]), int(start_pos[1])),
-                (int(task_position[0]), int(task_position[1])),
-                line_thickness  # Thickness of the line
+                color_list[self.agent_id % len(color_list)],
+                (int(start_pos.x), int(start_pos.y)),
+                (int(horizontal_pos[0]), int(horizontal_pos[1])),
+                line_thickness
             )
+
+            # 수직 경로 그리기
+            pygame.draw.line(
+                screen,
+                color_list[self.agent_id % len(color_list)],
+                (int(horizontal_pos[0]), int(horizontal_pos[1])),
+                (int(vertical_pos[0]), int(vertical_pos[1])),
+                line_thickness
+            )
+
             # Update the start position for the next segment
             start_pos = task_position
+            
 
 
     def update_color(self):        

@@ -77,15 +77,15 @@ def generate_tasks(task_id_start = 0):
     tasks = [Task(task_id_start, initial_position)]
     return tasks
 
-async def move_task_to_destination(task):
-    """에이전트가 task를 목적지로 옮기는 시뮬레이션"""
-    target_position = pygame.Vector2(container_positions[task.color])  # 작업 색상에 맞는 목적지 좌표
-    step = 5  # 이동 속도
+# async def move_task_to_destination(agent, task):
+#     """에이전트가 task를 목적지로 옮기는 시뮬레이션"""
+#     target_position = pygame.Vector2(container_positions[task.color])  # 작업 색상에 맞는 목적지 좌표
+#     step = 5  # 이동 속도
 
-    while task.position.distance_to(target_position) > 1:
-        direction = (target_position - task.position).normalize()
-        task.position += direction * step
-        await asyncio.sleep(0.1)  # 이동 시뮬레이션 대기 시간
+#     while agent.position.distance_to(target_position) > 1:
+#         direction = (target_position - agent.position).normalize()
+#         agent.position += direction * step
+#         await asyncio.sleep(0.1)  # 이동 시뮬레이션 대기 시간
 
-    task.set_done()  # task 완료
+#     task.set_done()  # task 완료
 

@@ -147,8 +147,14 @@ from modules.task import Task
 class TaskExecutingNode(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._execute_task)
+        self.agent = agent
         self.max_tasks = config['tasks']['quantity']  # config에서 최대 task 수 가져오기
         self.generated_tasks = 1  # 생성된 task 수를 추적
+
+    def _assign_task(self, blackboard):
+        # 에이전트가 가장 가까운 작업을 할당받도록 함수를 호출
+        self.agent.assign_nearest_task()
+        return Status.SUCCESS
 
     def _execute_task(self, agent, blackboard):   
         assigned_task_id = blackboard.get('assigned_task_id') 
@@ -185,6 +191,8 @@ class TaskExecutingNode(SyncAction):
                     # 작업에 도달했을 때, 작업 수집 및 loading 설정
                     task.pick_up_task()
                     agent.tasks_info[assigned_task_id].pick_up_task()  # 작업을 픽업함
+                    agent.task_color = task.color  # 현재 작업 색상 설정
+                    agent.update_image()  # 에이전트 이미지 업데이트
                     blackboard['loading'] = True
                     
                      # 새로운 task 생성 로직
@@ -205,6 +213,8 @@ class TaskExecutingNode(SyncAction):
 
             # 작업을 수집한 후, 목적지로 이동
             elif blackboard.get('loading', False):
+                    
+                #move_task_to_destination(agent, task)
                 distance_to_dest = math.sqrt((destination[0] - agent_position[0])**2 + (destination[1] - agent_position[1])**2)
                 
                 if distance_to_dest < target_arrive_threshold:
@@ -212,15 +222,8 @@ class TaskExecutingNode(SyncAction):
                     blackboard['loading'] = False  # 작업 완료 후 플래그를 False로 설정
                     task.completed = True
                     task.complete_task(destination, offset=(200, 100))  # offset 값을 조정하여 위치를 조정  # 목적지 위치에서 작업을 보이게 함
-                   
-                    #  # 새로운 task 생성 로직
-                    # if self.generated_tasks < self.max_tasks:  # 이미 생성된 task 수를 확인
-                    #     initial_position = (300, 570)  # 초기 위치 설정
-                    #     new_task = Task(self.generated_tasks, initial_position)
-                    #     agent.tasks_info.append(new_task)
-                    #     self.generated_tasks += 1
-                    #     print(f"New task {new_task.task_id} generated at {initial_position}")
-
+                    agent.task_color = None  # 작업을 완료했으므로 task 색상 제거
+                    agent.update_image()  # 기본 이미지로 복구
                     return Status.SUCCESS
                 
                 # 목적지로 이동
