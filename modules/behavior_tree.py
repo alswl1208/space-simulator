@@ -221,7 +221,7 @@ class TaskExecutingNode(SyncAction):
                     
                     blackboard['loading'] = False  # 작업 완료 후 플래그를 False로 설정
                     task.completed = True
-                    task.complete_task(destination, offset=(200, 100))  # offset 값을 조정하여 위치를 조정  # 목적지 위치에서 작업을 보이게 함
+                    task.complete_task(destination)  # offset 값을 조정하여 위치를 조정  # 목적지 위치에서 작업을 보이게 함
                     agent.task_color = None  # 작업을 완료했으므로 task 색상 제거
                     agent.update_image()  # 기본 이미지로 복구
                     return Status.SUCCESS

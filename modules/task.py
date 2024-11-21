@@ -42,8 +42,8 @@ class Task:
         }
         #print(f"Task {self.task_id} is now completed at {new_position}.")
         # container 크기로 이미지를 조정
-        container_width = 50
-        container_height = 100
+        container_width = 35
+        container_height = 50
         self.image = pygame.transform.scale(container_images[self.color], (container_width, container_height))
 
 
@@ -77,15 +77,4 @@ def generate_tasks(task_id_start = 0):
     tasks = [Task(task_id_start, initial_position)]
     return tasks
 
-# async def move_task_to_destination(agent, task):
-#     """에이전트가 task를 목적지로 옮기는 시뮬레이션"""
-#     target_position = pygame.Vector2(container_positions[task.color])  # 작업 색상에 맞는 목적지 좌표
-#     step = 5  # 이동 속도
-
-#     while agent.position.distance_to(target_position) > 1:
-#         direction = (target_position - agent.position).normalize()
-#         agent.position += direction * step
-#         await asyncio.sleep(0.1)  # 이동 시뮬레이션 대기 시간
-
-#     task.set_done()  # task 완료
 

@@ -50,7 +50,7 @@ tasks:
     y_min: 100
     y_max: 500
     non_overlap_radius: 0
-  threshold_done_by_arrival: 10.0
+  threshold_done_by_arrival: 5.0
   amounts:  # Added amounts range for tasks
     min: 12.0
     max: 30.0      

@@ -65,7 +65,7 @@ sea_background = pygame.transform.scale(sea_background, (250, 1200))  # 적절�
 
 # Initialize the Ship object
 ship_image_path = 'modules/models/Ship/ship.png'
-ship = Ship(image_path=ship_image_path, width=350, height=150, x=100, y=screen_height - 650)
+ship = Ship(image_path=ship_image_path, width=550, height=200, x=60, y=screen_height - 750)
 
 # Load container images
 container_images = {
@@ -75,13 +75,15 @@ container_images = {
 }
 
 # Resize container images
-container_width = 100
-container_height = 200
+container_width = 80
+container_height = 150
 for color in container_images:
     container_images[color] = pygame.transform.scale(container_images[color], (container_width, container_height))
+# Define spacing between containers
+container_spacing = 150  # 간격 값을 150으로 설정
 
-# Define container positions
-container_positions = [(screen_width - 100, 110 + i * (container_height + 50)) for i in range(len(container_images))]
+# Define container positions with updated spacing
+container_positions = [(screen_width - 100, 110 + i * (container_height + container_spacing)) for i in range(len(container_images))]
 
 # Initialize tasks
 from modules.task import generate_tasks

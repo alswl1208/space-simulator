@@ -145,8 +145,8 @@ class Agent:
         self.acceleration *= 0  # Reset acceleration
         
         # 경계 설정 (필요에 따라 값 조정)
-        MIN_X, MAX_X = 300, 1200  # X 좌표의 최소, 최대값
-        MIN_Y, MAX_Y = -800, 800  # Y 좌표의 최소, 최대값
+        MIN_X, MAX_X = 300, 1300  # X 좌표의 최소, 최대값
+        MIN_Y, MAX_Y = -300, 1200  # Y 좌표의 최소, 최대값
 
         # 경계 검사 및 위치 조정
         if self.position.x < MIN_X:
