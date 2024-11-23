@@ -31,8 +31,8 @@ agents:
     y_min: 0
     y_max: 1000
     non_overlap_radius: 0 
-  max_speed: 0.25  
-  max_accel: 0.05
+  max_speed: 0.8 #0.25  
+  max_accel: 0.8 #0.05
   max_angular_speed: 0.25
   target_approaching_radius: 50
   work_rate: 1  # work rate for each agent (per 1.0/simulation.sampling_freq)
@@ -41,7 +41,7 @@ agents:
   random_exploration_duration: 1000.0 # sec
 
 tasks:
-  quantity: 3 #100
+  quantity: 5 #100
   locations:
     x_min: 0
     x_max: 1400

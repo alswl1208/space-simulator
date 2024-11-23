@@ -1,6 +1,7 @@
 from enum import Enum
 import math
 import random
+import pygame
 
 # BT Node List
 class BehaviorTreeList:
@@ -158,7 +159,7 @@ class TaskExecutingNode(SyncAction):
 
     def _execute_task(self, agent, blackboard):   
         assigned_task_id = blackboard.get('assigned_task_id') 
-
+        
         if assigned_task_id is not None:
             task = agent.tasks_info[assigned_task_id]  # 혹은 다른 방법으로 작업 객체를 가져오기
 
@@ -213,23 +214,29 @@ class TaskExecutingNode(SyncAction):
 
             # 작업을 수집한 후, 목적지로 이동
             elif blackboard.get('loading', False):
-                    
+                
                 #move_task_to_destination(agent, task)
                 distance_to_dest = math.sqrt((destination[0] - agent_position[0])**2 + (destination[1] - agent_position[1])**2)
                 
                 if distance_to_dest < target_arrive_threshold:
-                    
+                    agent.planned_destination = []  # Destination 경로 초기화
                     blackboard['loading'] = False  # 작업 완료 후 플래그를 False로 설정
                     task.completed = True
+                    agent.reset_movement()
                     task.complete_task(destination)  # offset 값을 조정하여 위치를 조정  # 목적지 위치에서 작업을 보이게 함
                     agent.task_color = None  # 작업을 완료했으므로 task 색상 제거
                     agent.update_image()  # 기본 이미지로 복구
                     return Status.SUCCESS
                 
                 # 목적지로 이동
+                agent.planned_destination = [
+                    pygame.Vector2(agent.position.x, agent.position.y),  # 현재 위치
+                    pygame.Vector2(destination[0], agent.position.y),    # 수평 경로
+                    pygame.Vector2(destination[0], destination[1])       # 수직 경로 (목적지)
+                ]
                 agent.follow(destination)
                 return Status.RUNNING
-
+        
         return Status.FAILURE
 
 # Exploration node

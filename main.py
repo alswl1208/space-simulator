@@ -221,9 +221,10 @@ async def game_loop():
                 # Draw agents
                 for agent in agents:                    
                     if rendering_options.get('agent_path_to_assigned_tasks'): # Draw each agent's path to its assigned tasks
-                        agent.draw_path_to_assigned_tasks(screen)                    
-                    if rendering_options.get('agent_tail'): # Draw each agent's trajectory tail
-                        agent.draw_tail(screen)
+                        agent.draw_path_to_assigned_tasks(screen) 
+                        agent.draw_path_to_destination(screen)                  
+                    # if rendering_options.get('agent_tail'): # Draw each agent's trajectory tail
+                    #     agent.draw_tail(screen)
                     if rendering_options.get('agent_id'): # Draw each agent's ID
                         agent.draw_agent_id(screen)
                     if rendering_options.get('agent_assigned_task_id'): # Draw each agent's assigned task ID

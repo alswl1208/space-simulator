@@ -45,7 +45,8 @@ class Agent:
 
         self.assigned_task_id = None         # Local decision-making result.
         self.planned_tasks = []              # Local decision-making result.
-        
+        self.planned_destination = []
+
         self.distance_moved = 0.0
         self.task_amount_done = 0.0        
 
@@ -133,7 +134,6 @@ class Agent:
         self.applyForce(steer)
 
 
-
     def applyForce(self, force):
         self.acceleration += force
 
@@ -166,9 +166,9 @@ class Agent:
         # Calculate the distance moved in this update and add to distance_moved
         self.distance_moved += self.velocity.length() * sampling_time
         # Memory of positions to draw track
-        self.memory_location.append((self.position.x, self.position.y))
-        if len(self.memory_location) > agent_track_size:
-            self.memory_location.pop(0)
+        # self.memory_location.append((self.position.x, self.position.y))
+        # if len(self.memory_location) > agent_track_size:
+        #     self.memory_location.pop(0)
 
         # Update rotation
         desired_rotation = math.atan2(self.velocity.y, self.velocity.x)
@@ -227,10 +227,10 @@ class Agent:
         pygame.draw.polygon(screen, self.color, [p1, p2, p3])
 
 
-    def draw_tail(self, screen):
-        # Draw track
-        if len(self.memory_location) >= 2:
-            pygame.draw.lines(screen, self.color, False, self.memory_location, 1)               
+    # def draw_tail(self, screen):
+    #     # Draw track
+    #     if len(self.memory_location) >= 2:
+    #         pygame.draw.lines(screen, self.color, False, self.memory_location, 1)               
         
 
     def draw_communication_topology(self, screen, agents):
@@ -268,6 +268,8 @@ class Agent:
             pygame.draw.circle(screen, self.color, (self.position[0], self.position[1]), self.situation_awareness_radius, 1)
 
     def draw_path_to_assigned_tasks(self, screen):
+        if self.blackboard.get('loading', False):  # 'loading' 상태 확인
+            return
         # Starting position is the agent's current position
         start_pos = self.position
 
@@ -314,7 +316,54 @@ class Agent:
 
             # Update the start position for the next segment
             start_pos = task_position
-            
+         
+    def draw_path_to_destination(self, screen):
+        if not self.planned_destination:  # Destination 경로가 없으면 종료
+            return
+
+        # Define line thickness
+        line_thickness = 3  
+
+        # Color list for different agents
+        color_list = [
+            (255, 0, 0),  # Red
+            (0, 255, 0),  # Green
+            (0, 0, 255),  # Blue
+            (255, 255, 0),  # Yellow
+            (255, 0, 255),  # Magenta
+            (0, 255, 255),  # Cyan
+            (255, 165, 0),  # Orange
+            (128, 0, 128),  # Purple
+            (255, 192, 203)  # Pink
+        ]
+
+        # Assign color based on agent_id
+        color = color_list[self.agent_id % len(color_list)]
+
+        # 경로 시각화
+        start_pos = self.planned_destination[0]
+        horizontal_pos = self.planned_destination[1]
+        vertical_pos = self.planned_destination[2]
+        
+        # 수평 경로 그리기
+        pygame.draw.line(
+            screen,
+            color,
+            (int(start_pos.x), int(start_pos.y)),
+            (int(horizontal_pos.x), int(horizontal_pos.y)),
+            line_thickness
+        )
+
+        # 수직 경로 그리기
+        pygame.draw.line(
+            screen,
+            color,
+            (int(horizontal_pos.x), int(horizontal_pos.y)),
+            (int(vertical_pos.x), int(vertical_pos.y)),
+            line_thickness
+        )
+
+   
 
 
     def update_color(self):        
