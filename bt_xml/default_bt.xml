@@ -7,6 +7,7 @@
         <Sequence>
           <DecisionMakingNode/>
           <TaskExecutingNode/>
+          <MoveToInitialTaskPositionNode/>
         </Sequence>
       </Fallback>
     </Sequence>
@@ -17,6 +18,8 @@
     <Action ID="DecisionMakingNode"
             editable="true"/>
     <Action ID="LocalSensingNode"
+            editable="true"/>
+    <Action ID="MoveToInitialTaskPositionNode"
             editable="true"/>
     <Action ID="TaskExecutingNode"
             editable="true"/>

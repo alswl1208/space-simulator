@@ -294,4 +294,3 @@ class Ship:
     def draw(self, screen):
         """배 이미지를 화면에 그리는 함수"""
         screen.blit(self.image, (self.position.x, self.position.y))
-

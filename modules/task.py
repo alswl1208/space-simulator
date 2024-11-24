@@ -69,7 +69,7 @@ class Task:
             font = pygame.font.Font(None, 15)
             text_surface = font.render(f"task_id {self.task_id}: {self.amount:.2f}", True, (250, 250, 250))
             screen.blit(text_surface, (self.position[0], self.position[1]))
-
+    
 
 def generate_tasks(task_id_start = 0):
     task_quantity = config['tasks']['quantity']  # config에서 task 개수 가져오기

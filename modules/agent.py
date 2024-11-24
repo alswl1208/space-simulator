@@ -4,6 +4,7 @@ import copy
 from modules.behavior_tree import *
 from modules.utils import config, generate_positions, parse_behavior_tree
 from modules.task import task_colors
+from enum import Enum
 
 # Load agent configuration
 agent_max_speed = config['agents']['max_speed']
@@ -19,6 +20,11 @@ font = pygame.font.Font(None, 15)
 # Load behavior tree
 behavior_tree_xml = config['agents']['behavior_tree_xml']
 xml_root = parse_behavior_tree(f"bt_xml/{behavior_tree_xml}")
+
+class AgentState(Enum):
+    TO_DESTINATION = 1  # 작업을 목적지로 운반 중
+    TO_TASK = 2         # 작업 위치로 이동 중
+    IDLE = 3            # 대기 중
 
 class Agent:
     def __init__(self, agent_id, position, tasks_info):
@@ -48,7 +54,8 @@ class Agent:
         self.planned_destination = []
 
         self.distance_moved = 0.0
-        self.task_amount_done = 0.0        
+        self.task_amount_done = 0.0   
+        self.state = AgentState.IDLE     
 
         # 기존 초기화 코드
         self.image = pygame.image.load('modules/models/Agents/agent.png')  # 기본 이미지
@@ -106,21 +113,24 @@ class Agent:
         return await self.tree.run(self, self.blackboard)
 
     def follow(self, target):
-        # Ensure target is a pygame.Vector2 object
+        """
+        목표를 따라가며 수직/수평 이동과 충돌 회피를 통합하여 처리하는 함수.
+        """
         if not isinstance(target, pygame.Vector2):
             target = pygame.Vector2(target)
 
-        # Current position
+        # 현재 위치 및 목표 위치
         current_pos = self.position
+        desired = target - current_pos
 
-        # 목표 경로를 수직 및 수평으로 나눔
-        horizontal_target = pygame.Vector2(target.x, current_pos.y)  # 수평 이동
-        vertical_target = pygame.Vector2(target.x, target.y)        # 수직 이동
+        # 수직 및 수평 목표 계산
+        horizontal_target = pygame.Vector2(target.x, current_pos.y)
+        vertical_target = pygame.Vector2(target.x, target.y)
 
-        # 현재 위치와 수평 목표 위치 사이의 거리 계산
-        if abs(current_pos.x - target.x) > 1:  # 수평으로 이동이 필요하다면
+        # 수평으로 이동이 필요하면 수평 목표로 desired 설정
+        if abs(current_pos.x - target.x) > 1:  # X 좌표 차이가 크면 수평 이동
             desired = horizontal_target - current_pos
-        else:  # 수평으로 정렬된 후 수직 이동
+        else:  # 수평으로 정렬된 후 수직 목표로 이동
             desired = vertical_target - current_pos
 
         # Normalize and apply speed
@@ -128,7 +138,15 @@ class Agent:
             desired.normalize_ip()
             desired *= self.max_speed
 
-        # Calculate steering force
+        # 충돌 회피 벡터 계산
+        avoidance_force = self.avoid_collision()
+        if avoidance_force.length() > 0:  # 충돌 회피가 필요한 경우
+            self.is_avoiding_collision = True
+            desired += avoidance_force  # 충돌 회피 벡터 추가
+        else:
+            self.is_avoiding_collision = False  # 충돌 회피 종료
+
+        # 스티어링 힘 계산 및 적용
         steer = desired - self.velocity
         steer = self.limit(steer, self.max_accel)
         self.applyForce(steer)
@@ -146,7 +164,7 @@ class Agent:
         
         # 경계 설정 (필요에 따라 값 조정)
         MIN_X, MAX_X = 300, 1300  # X 좌표의 최소, 최대값
-        MIN_Y, MAX_Y = -300, 1200  # Y 좌표의 최소, 최대값
+        MIN_Y, MAX_Y = 0, 900  # Y 좌표의 최소, 최대값
 
         # 경계 검사 및 위치 조정
         if self.position.x < MIN_X:
@@ -459,6 +477,117 @@ class Agent:
             
     def update_task_amount_done(self, amount):
         self.task_amount_done += amount
+
+    def get_state(self):
+        """
+        에이전트의 상태를 반환:
+        - TO_DESTINATION: 작업을 목적지로 운반 중
+        - TO_TASK: 작업 위치로 이동 중
+        - IDLE: 대기 중
+        """
+        if self.blackboard.get('loading', False):
+            return "TO_DESTINATION"
+        elif self.assigned_task_id is not None:
+            return "TO_TASK"
+        else:
+            return "IDLE"
+
+    def avoid_collision(self):
+        """
+        충돌 방지 로직:
+        - 주변 에이전트와의 거리와 상태를 기반으로 회피 벡터를 계산.
+        """
+        avoidance_force = pygame.Vector2(0, 0)
+        self_state = self.get_state()
+
+        for neighbor in self.agents_nearby:
+            distance = self.position.distance_to(neighbor.position)
+            if distance > self.communication_radius or distance == 0:
+                continue
+
+            neighbor_state = neighbor.get_state()
+
+            if distance < 100.0:  # 충돌 가능성이 높은 거리
+                direction_away = self.position - neighbor.position
+                if direction_away.length() > 0:
+                    direction_away.normalize_ip()
+
+                    # 상태 기반 회피 우선순위
+                    if self_state == "TO_TASK" and neighbor_state == "TO_DESTINATION":
+                        avoidance_force += direction_away * (50.0 - distance)
+                    elif self_state == "TO_DESTINATION" and neighbor_state in ["TO_TASK", "IDLE"]:
+                        continue
+                    elif self_state == "IDLE":
+                        avoidance_force += direction_away * (50.0 - distance) * 0.5
+                    elif neighbor_state == "IDLE":
+                        continue
+                    else:
+                        if self.agent_id < neighbor.agent_id:
+                            avoidance_force += direction_away * (50.0 - distance)
+
+        # Avoidance force magnitude 제한
+        if avoidance_force.length() > self.max_accel:
+            avoidance_force.scale_to_length(self.max_accel)
+
+        return avoidance_force
+    
+    def move_to_initial_task_position(self, initial_task_position):
+        """
+        초기 작업 위치로 이동하는 함수 (직각 경로로 이동)
+        Args:
+            initial_task_position (tuple): 초기 작업 위치 (x, y)
+        """
+        if not isinstance(initial_task_position, pygame.Vector2):
+            initial_task_position = pygame.Vector2(initial_task_position)
+
+        current_pos = self.position
+
+        # 우선 수평 이동
+        if abs(current_pos.x - initial_task_position.x) > 1:  # 수평 차이가 크다면 수평 이동
+            target_pos = pygame.Vector2(initial_task_position.x, current_pos.y)
+        # 수평이 맞춰졌으면 수직 이동
+        else:
+            target_pos = pygame.Vector2(initial_task_position.x, initial_task_position.y)
+
+        desired = target_pos - current_pos
+
+        # 목표 방향으로 속도 설정
+        if desired.length() > 0:
+            desired.normalize_ip()
+            desired *= self.max_speed
+
+        # 충돌 회피 로직 추가
+        avoidance_force = self.avoid_collision()
+        if avoidance_force.length() > 0:  # 충돌 회피가 필요한 경우
+            desired += avoidance_force
+
+        # 스티어링 힘 계산 및 적용
+        steer = desired - self.velocity
+        steer = self.limit(steer, self.max_accel)
+        self.applyForce(steer)
+
+        # 디버깅 메시지
+        print(f"[DEBUG] Agent {self.agent_id} moving to {target_pos}. Current position: {current_pos}")
+
+
+    async def move_to_task_position_action(self, agent, blackboard):
+        """
+        비동기로 실행할 초기 위치로 이동하는 행동 노드
+        Args:
+            agent (Agent): 현재 에이전트 인스턴스
+            blackboard (dict): 에이전트 상태 저장용 블랙보드
+        """
+        initial_task_position = blackboard.get("initial_task_position", (300, 570))
+        agent.move_to_initial_task_position(initial_task_position)
+
+        # 목표 위치에 도달했는지 확인
+        distance_to_initial = agent.position.distance_to(initial_task_position)
+        if distance_to_initial < agent_approaching_to_target_radius:
+            print(f"Agent {agent.agent_id} reached the initial task position.")
+            return Status.SUCCESS
+
+        return Status.RUNNING
+
 
 def generate_agents(tasks_info):
     agent_quantity = config['agents']['quantity']

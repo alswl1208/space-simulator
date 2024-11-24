@@ -14,7 +14,8 @@ class BehaviorTreeList:
         'LocalSensingNode',
         'DecisionMakingNode',
         'TaskExecutingNode',
-        'ExplorationNode'
+        'ExplorationNode',
+        'MoveToInitialTaskPositionNode'
     ]
 
 
@@ -99,7 +100,11 @@ class LocalSensingNode(SyncAction):
         blackboard['local_agents_info'] = agent.local_message_receive()
         #current_position = agent.position
         blackboard['current_position'] = agent.position  # 에이전트의 현재 위치를 블랙보드에 저장
-        
+        # 충돌 회피 상태 업데이트
+        blackboard['collision_avoidance'] = any(
+            agent.position.distance_to(other_agent.position) < agent.situation_awareness_radius
+            for other_agent in blackboard['local_agents_info']
+        )
         if 'loading' not in blackboard:
             blackboard['loading'] = False
 
@@ -261,4 +266,42 @@ class ExplorationNode(SyncAction):
         pos = (random.randint(x_min, x_max),
                 random.randint(y_min, y_max))
         return pos
-    
+
+agent_approaching_to_target_radius = config['agents']['target_approaching_radius']
+  
+class MoveToInitialTaskPositionNode(SyncAction):
+    def __init__(self, name, agent):
+        super().__init__(name, agent.move_to_task_position_action)
+
+    async def run(self, agent, blackboard):
+        # 할당된 작업의 완료 여부 확인
+        assigned_task_id = agent.assigned_task_id
+        if assigned_task_id is None:
+            print(f"[DEBUG] Agent {agent.agent_id} has no assigned task.")
+            return Status.FAILURE
+
+        # 작업 정보 확인
+        task_info = next((task for task in agent.tasks_info if task.task_id == assigned_task_id), None)
+        if task_info is None:
+            print(f"[DEBUG] Task ID {assigned_task_id} not found for Agent {agent.agent_id}.")
+            return Status.FAILURE
+
+        # 작업 완료 여부 확인
+        if not task_info.completed:
+            print(f"[DEBUG] Task ID {assigned_task_id} for Agent {agent.agent_id} is not completed.")
+            return Status.FAILURE
+
+        # 목표 위치로 이동
+        target_position = pygame.Vector2(300, 570)
+        distance_to_target = agent.position.distance_to(target_position)
+
+        # 디버깅 메시지
+        print(f"[DEBUG] Agent {agent.agent_id} moving to initial position. Distance: {distance_to_target}")
+
+        if distance_to_target < agent_approaching_to_target_radius:
+            print(f"[DEBUG] Agent {agent.agent_id} reached initial position.")
+            return Status.SUCCESS
+
+        # 목표 위치로 이동
+        agent.move_to_initial_task_position(target_position)
+        return Status.RUNNING
