@@ -7,7 +7,10 @@
         <Sequence>
           <Fallback>
             <IsArrivedAtChargingStation/>
-            <GoToChargingStation/>
+            <Sequence>
+              <PlanPath goal_type="charging_station"/>
+              <GoToChargingStation/>
+            </Sequence>
           </Fallback>
           <ChargeBattery/>
         </Sequence>
@@ -24,6 +27,7 @@
                   <IsArrivedAtShip/>
                   <Sequence>
                     <DecideShip/>
+                    <PlanPath goal_type="ship"/>
                     <GoToShip/>
                   </Sequence>
                 </Fallback>
@@ -32,7 +36,10 @@
             </Fallback>
             <Fallback>
               <IsArrivedAtDestination/>
-              <GoToDestination/>
+              <Sequence>
+                <PlanPath goal_type="destination"/>
+                <GoToDestination/>
+                </Sequence>
             </Fallback>
             <PlaceItem/>
           </Sequence>
@@ -43,6 +50,10 @@
 
   <!-- Description of Node Models (used by Groot) -->
   <TreeNodesModel>
+    <Action ID="PlanPath"
+            editable="true">
+        <input_port name="goal_type" description="The type of goal (ship, destination, charging_station)"/>
+    </Action>  
     <Action ID="GoToDestination"
             editable="true"/>
     <Action ID="DecideShip"

@@ -89,7 +89,7 @@ class Agent(BaseAgent):
             self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent.png')  # 기본 이미지
         # 이미지 크기 조정
         self.image = pygame.transform.scale(self.image, (50, 50))
-
+    
     def draw_waypoints(self, screen):
         """
         Visualize the agent's waypoints on the screen.

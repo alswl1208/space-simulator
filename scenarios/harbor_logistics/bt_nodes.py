@@ -2,6 +2,7 @@ from enum import Enum
 import math
 from modules.base_bt_nodes import BTNodeList, Status, Node, Sequence, Fallback, SyncAction, LocalSensingNode, DecisionMakingNode,  ReactiveSequence
 from plugins.path_planner.plugin_manager import planner_manager
+import pygame
 
 # BT Node List
 CUSTOM_ACTION_NODES = [
@@ -11,7 +12,8 @@ CUSTOM_ACTION_NODES = [
     'PlaceItem',
     'DecideShip',
     'GoToChargingStation',
-    'ChargeBattery'
+    'ChargeBattery',
+    'PlanPath'
 ]
 
 CUSTOM_CONDITION_NODES = [
@@ -60,7 +62,8 @@ class IsHoldingItem(SyncAction):
         assigned_task_id = blackboard.get('assigned_task_id', None)
         if assigned_task_id is None:            
             return Status.FAILURE        
-        else:            
+        else:
+            blackboard['goal_type'] = 'destination'            
             return Status.SUCCESS
 
 class IsArrivedAtShip(SyncAction):
@@ -69,7 +72,9 @@ class IsArrivedAtShip(SyncAction):
 
     def _check(self, agent, blackboard):        
         status = blackboard.get('status', None)
-        if status == "AtShip":            
+        goal_type = blackboard.get('goal_type', None)
+
+        if status == "AtShip" and goal_type == "ship":            
             blackboard['waypoints'] = None # Reset
             return Status.SUCCESS       
         else:            
@@ -117,10 +122,13 @@ class IsArrivedAtChargingStation(SyncAction):
 
     def _check(self, agent, blackboard):
         status = blackboard.get('status', None)
-        if status == "AtChargingStation":  # 충전소에 도착했는지 확인
+        goal_type = blackboard.get('goal_type', None)
+
+        if status == "AtChargingStation" and goal_type == "charging_station" and not blackboard.get('is_going_to_charging_station', False):
             blackboard['waypoints'] = None  # 경로 초기화
             return Status.SUCCESS
         else:
+            blackboard['goal_type'] = 'charging_station'
             return Status.FAILURE
 
 
@@ -166,66 +174,97 @@ class DecideShip(SyncAction):
 
         blackboard['chosen_ship'] = chosen_ship
         blackboard['ship_selected'] = True
+        blackboard['goal_type'] = 'ship'
         print(f"Agent {agent.agent_id}: Decided to go to {chosen_ship}")
+        return Status.SUCCESS
+
+class PlanPath(SyncAction):
+    def __init__(self, name, agent):
+        super().__init__(name, self._plan)
+        planner_name = config['planner']['algorithm']
+        self.path_planner = planner_manager.get_planner(planner_name, agent)
+
+    def _plan(self, agent, blackboard):
+        
+        # goal_type을 BT XML에서 입력값으로 가져옴
+        goal_type = blackboard.get('goal_type', None)
+        #print(f"[PlanPath] Agent {agent.agent_id}: goal_type = {goal_type}")
+
+        if goal_type is None:
+            print(f"[PlanPath] Agent {agent.agent_id}: No goal type specified!")
+            return Status.FAILURE
+
+        # # 이미 생성된 waypoints가 있으면 그대로 사용
+        if 'waypoints' in blackboard and blackboard['waypoints'] is not None:
+            return Status.SUCCESS
+        
+        # 목표 위치 설정
+        if goal_type == 'ship':
+            chosen_ship = blackboard.get('chosen_ship', None)
+            if chosen_ship == 'Ship1':
+                goal = (
+                    (task_locations1['x_min'] + task_locations1['x_max']) / 2,
+                    (task_locations1['y_min'] + task_locations1['y_max']) / 2,
+                )
+            elif chosen_ship == 'Ship2':
+                goal = (
+                    (task_locations2['x_min'] + task_locations2['x_max']) / 2,
+                    (task_locations2['y_min'] + task_locations2['y_max']) / 2,
+                )
+            else:
+                print(f"[PlanPath] Agent {agent.agent_id}: Unknown ship {chosen_ship}")
+                return Status.FAILURE
+
+        elif goal_type == 'destination':
+            assigned_task_id = blackboard.get('assigned_task_id')
+            if assigned_task_id is None:
+                print(f"[PlanPath] Agent {agent.agent_id}: No assigned task!")
+                return Status.FAILURE
+            goal = agent.tasks_info[assigned_task_id].position_to_deliver
+
+        elif goal_type == 'charging_station':
+            x = config['charging_station_position']['x']
+            y = config['charging_station_position']['y']
+            offset_x = config['charging_station_position']['offset_x']
+            goal = (x + agent.agent_id * offset_x, y)
+
+        else:
+            print(f"[PlanPath] Agent {agent.agent_id}: Invalid goal type {goal_type}")
+            return Status.FAILURE
+
+        # 현재 위치
+        start = agent.position
+
+        # Path Planning 수행
+        waypoints = self.path_planner.generate(start, goal)
+        if not waypoints:
+            print(f"[PlanPath] Agent {agent.agent_id}: Failed to generate path!")
+            return Status.FAILURE
+
+        # 생성된 waypoints 저장
+        blackboard['waypoints'] = waypoints
+        print(f"[PlanPath] Agent {agent.agent_id}: Planned path to {goal_type}: {waypoints}")
+        blackboard['next_waypoint_index'] = 0
         return Status.SUCCESS
 
 class GoToShip(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._move)
         self.waypoint_follower = WaypointFollower(agent, target_arrive_threshold)
-        planner_name = config['planner']['algorithm']  
-        self.path_planner = planner_manager.get_planner(planner_name, agent)
-            
+ 
     def _move(self, agent, blackboard):
+        
         if agent.check_collision(agent.env.agents):
             return Status.FAILURE
 
         if blackboard.get('is_going_to_charging_station', False):
-            #print(f"Agent {agent.agent_id}: Currently heading to charging station.")
             return Status.FAILURE
+        
         if blackboard.get('is_charging', False):
-            #print(f"Agent {agent.agent_id}: Currently charging.")
-            return Status.FAILURE
-        # 충전소 경로 초기화 확인
-        #if blackboard.get('charging_station_waypoints', None) is not None:
-            #print(f"Agent {agent.agent_id}: Still has charging station waypoints.")
             return Status.FAILURE
 
-        waypoints = blackboard.get('waypoints', None)
-
-        # 선택된 Ship 위치 가져오기
-        chosen_ship = blackboard.get('chosen_ship', None)
-        if chosen_ship is None:
-            print(f"Agent {agent.agent_id}: No ship selected!")
-            return Status.FAILURE
-        
-        # Ship 위치 설정
-        if waypoints is None:
-            if chosen_ship == 'Ship1':
-                position_to_pickup = (
-                    (task_locations1['x_min'] + task_locations1['x_max']) / 2,
-                    (task_locations1['y_min'] + task_locations1['y_max']) / 2,
-                )
-            elif chosen_ship == 'Ship2':
-                position_to_pickup = (
-                    (task_locations2['x_min'] + task_locations2['x_max']) / 2,
-                    (task_locations2['y_min'] + task_locations2['y_max']) / 2,
-                )
-            else:
-                print(f"Agent {agent.agent_id}: Unknown ship {chosen_ship}")
-                return Status.FAILURE
-            
-            start = agent.position  # 에이전트 현재 위치
-            goal = position_to_pickup  # 목표 위치 (Ship)
-            
-            waypoints = self.path_planner.generate(start, goal)
-            self.waypoint_follower.set_waypoints(waypoints)
-            blackboard['waypoints'] = waypoints
-            self.waypoint_follower.next_waypoint_index = 0
-            print(f"Agent {agent.agent_id} waypoints to ship: {waypoints}")
-        
-        if agent.check_collision(agent.env.agents):
-            return Status.FAILURE
+        # if 'waypoints' not in blackboard or blackboard['waypoints'] is None:
+        #     return Status.FAILURE
         
         # Waypoint Following
         result = self.waypoint_follower.move()
@@ -240,62 +279,39 @@ class GoToDestination(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._move)
         self.waypoint_follower = WaypointFollower(agent, target_arrive_threshold)
-        planner_name = config['planner']['algorithm']  
-        self.path_planner = planner_manager.get_planner(planner_name, agent)
-
+  
     def _move(self, agent, blackboard):
+        
         if agent.check_collision(agent.env.agents):
             return Status.FAILURE
 
         if blackboard.get('is_going_to_charging_station', False):
             return Status.FAILURE
+        
         if blackboard.get('is_charging', False):
             return Status.FAILURE
 
-        waypoints = blackboard.get('waypoints', None)
-
-        # Path Generation
-        if waypoints is None:
-            assigned_task_id = blackboard.get('assigned_task_id')  
-            position_to_deliver = agent.tasks_info[assigned_task_id].position_to_deliver        
-            
-            # start와 goal을 사용해 경로 생성
-            start = agent.position
-            goal = position_to_deliver
-            waypoints = self.path_planner.generate(start, goal) 
-            self.waypoint_follower.set_waypoints(waypoints)
-            blackboard['waypoints'] = waypoints
-            self.waypoint_follower.next_waypoint_index = 0
-
-        if agent.check_collision(agent.env.agents):
+        if 'waypoints' not in blackboard or blackboard['waypoints'] is None:
             return Status.FAILURE
-        
+
+        goal_type = blackboard.get('goal_type', None)
+
         # Waypoint Following        
         result = self.waypoint_follower.move()
         if result == Status.SUCCESS:
-            blackboard['status'] = "AtDestination"
             blackboard['waypoints'] = None # Reset
+            #blackboard['assigned_task_id'] = None
+            if goal_type == "destination":
+                blackboard['status'] = "AtDestination"
         return result
     
 class GoToChargingStation(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._move)
         self.waypoint_follower = WaypointFollower(agent, target_arrive_threshold)
-        planner_name = config['planner']['algorithm']  
-        self.path_planner = planner_manager.get_planner(planner_name, agent)
-
-        # 에이전트 ID에 따라 충전소 위치 계산
-        x = config['charging_station_position']['x']
-        y = config['charging_station_position']['y']
-        offset_x = config['charging_station_position']['offset_x']
-
-        self.charging_station_position = (
-            x + agent.agent_id * offset_x,
-            y
-        )
-        #print(f"Agent {self.agent.agent_id}: Target charging station position: {self.charging_station_position}")
 
     def _move(self, agent, blackboard):
+        
         if agent.check_collision(agent.env.agents):
             return Status.FAILURE
 
@@ -305,22 +321,9 @@ class GoToChargingStation(SyncAction):
         # 충전소로 가는 중 상태 설정
         blackboard['is_going_to_charging_station'] = True
 
-        # 기존 경로 확인
-        waypoints = blackboard.get('waypoints', None)
-        
-        if waypoints is None:
-            start = agent.position  # 현재 위치
-            goal = self.charging_station_position  # 목표 위치
-            
-            # 경로 생성 
-            waypoints = self.path_planner.generate(start, goal)
-            self.waypoint_follower.set_waypoints(waypoints)
-            blackboard['waypoints'] = waypoints
-            print(f"Agent {agent.agent_id} waypoints to charging station: {waypoints}")
-        
-        if agent.check_collision(agent.env.agents):
+        if 'waypoints' not in blackboard or blackboard['waypoints'] is None:
             return Status.FAILURE
-        
+  
         # Waypoint Following
         result = self.waypoint_follower.move()
         if result == Status.SUCCESS:
@@ -348,20 +351,20 @@ class WaypointFollower():
 
     def move(self):
         
-        # 1. waypoints가 비어있는지 확인
-        if not self.waypoints:
-            print("[ERROR] No waypoints found! Agent cannot move.")
-            return Status.FAILURE
-
-        # 2. next_waypoint_index가 유효한지 확인
-        if self.next_waypoint_index >= len(self.waypoints):
-            print(f"[ERROR] Invalid waypoint index: {self.next_waypoint_index}. Max index: {len(self.waypoints)-1}")
-            return "FAILURE"
+        # # 1. waypoints가 비어있는지 확인
+        # if not self.waypoints:
+        #     self.waypoints = self.agent.blackboard.get('waypoints', None)
+        # print(f"🛠 [WaypointFollower] Agent {self.agent.agent_id} waypoints before move: {self.waypoints}")
+        self.waypoints = self.agent.blackboard.get('waypoints', None)
+        # # 2. next_waypoint_index가 유효한지 확인
+        # if self.next_waypoint_index >= len(self.waypoints):
+        #     print(f"[ERROR] Invalid waypoint index: {self.next_waypoint_index}. Max index: {len(self.waypoints)-1}")
+        #     return "FAILURE"
 
         agent_position = self.agent.position
         next_waypoint = self.waypoints[self.next_waypoint_index]
 
-        if agent_position == next_waypoint:
+        if agent_position == pygame.math.Vector2(next_waypoint):
            self.next_waypoint_index += 1
            if self.next_waypoint_index >= len(self.waypoints):
                self.reset()
@@ -411,7 +414,7 @@ class PickItem(SyncAction):
         # 작업 색상을 에이전트 이미지에 반영
         agent.task_color = assigned_task.color
         agent.update_image()
-
+               
         return Status.SUCCESS
 
 class PlaceItem(SyncAction):
@@ -422,10 +425,13 @@ class PlaceItem(SyncAction):
         if blackboard.get('is_charging', False):
             return Status.FAILURE
         
-        agent.tasks_info[agent.assigned_task_id].set_done()
-        agent.set_assigned_task_id(None)
-        blackboard['assigned_task_id'] = None
-        blackboard['ship_selected'] = False
+        goal_type = blackboard.get('goal_type', None)
+        if goal_type == "destination":
+            agent.tasks_info[agent.assigned_task_id].set_done()
+            agent.set_assigned_task_id(None)
+            blackboard['assigned_task_id'] = None
+            blackboard['ship_selected'] = False
+
 
         agent.task_color = None
         agent.update_image()
@@ -458,7 +464,10 @@ class ChargeBattery(SyncAction):
             blackboard['is_charging'] = False  # 충전 상태 해제
             #blackboard['charging_station_waypoints'] = None  # 충전 경로 초기화
             blackboard['is_going_to_charging_station'] = False
-            blackboard['status'] = None  # 충전소 상태 초기화
+            #blackboard['status'] = None  # 충전소 상태 초기화
             blackboard['waypoints'] = None
+            blackboard['chosen_ship'] = None
+            blackboard['ship_selected'] = False
+           #blackboard['next_waypoint_index'] = 0
             return Status.SUCCESS
 
