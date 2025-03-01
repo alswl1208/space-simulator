@@ -64,7 +64,7 @@ class IsHoldingItem(SyncAction):
         if assigned_task_id is None:            
             return Status.FAILURE        
         else:
-            blackboard['goal_type'] = 'destination'            
+            blackboard['goal_type'] = 'destination'          
             return Status.SUCCESS
 
 class IsArrivedAtShip(SyncAction):
@@ -87,7 +87,9 @@ class IsArrivedAtDestination(SyncAction):
 
     def _check(self, agent, blackboard):        
         status = blackboard.get('status', None)
-        if status == "AtDestination":            
+        goal_type = blackboard.get('goal_type', None)
+
+        if status == "AtDestination" and goal_type == "destination":            
             blackboard['waypoints'] = None # Reset
             return Status.SUCCESS       
         else:            
@@ -247,6 +249,7 @@ class PlanPath(SyncAction):
         print(f"[PlanPath] Agent {agent.agent_id}: Planned path to {goal_type}: {waypoints}")
         blackboard['next_waypoint_index'] = 0
         self.next_waypoint_index = 0
+        blackboard['status'] = None
         return Status.SUCCESS
 
 class GoToShip(SyncAction):
@@ -274,7 +277,7 @@ class GoToShip(SyncAction):
         if result == Status.SUCCESS:
             blackboard['status'] = "AtShip"
             blackboard['waypoints'] = None # Reset
-
+            return Status.SUCCESS
         return result
 
 class GoToDestination(SyncAction):
@@ -292,46 +295,11 @@ class GoToDestination(SyncAction):
         
         if blackboard.get('is_charging', False):
             return Status.FAILURE
-
-<<<<<<< HEAD
-        if 'waypoints' not in blackboard or blackboard['waypoints'] is None:
-=======
-        waypoints = blackboard.get('waypoints', None)
-
-        # Path Generation TODO: This must be smarter
-        if waypoints is None:
-            assigned_task_id = blackboard.get('assigned_task_id')  
-            position_to_deliver = agent.tasks_info[assigned_task_id].position_to_deliver        
-            
-            # start와 goal을 사용해 경로 생성
-            # 비교할 두 점
-            
-            start = agent.position
-
-            point1 = pygame.math.Vector2(200, 120)
-            point2 = pygame.math.Vector2(200, 840)            
-
-            # 유클리드 거리 계산
-            distance1 = start.distance_to(point1)
-            distance2 = start.distance_to(point2)
-
-# 더 가까운 점 찾기
-            transit_point = point1 if distance1 < distance2 else point2
-
-
-
-            goal = position_to_deliver
-            waypoints_first = self.path_planner.generate(start, transit_point) 
-            waypoints_second = self.path_planner.generate(transit_point, (goal[0], transit_point[1])) 
-            waypoints_third = self.path_planner.generate((goal[0], transit_point[1]), goal) 
-            waypoints = waypoints_first + waypoints_second[:-1] + waypoints_third
-            # waypoints = self.path_planner.generate(start, goal) 
-            self.waypoint_follower.set_waypoints(waypoints)
-            blackboard['waypoints'] = waypoints
-            self.waypoint_follower.next_waypoint_index = 0
+        
+        if blackboard.get('status') == "AtShip":
+             return Status.FAILURE
 
         if agent.check_collision(agent.env.agents):
->>>>>>> 15a03af97e2cb7d286646f011741d7d7653ca306
             return Status.FAILURE
 
         goal_type = blackboard.get('goal_type', None)
@@ -391,12 +359,12 @@ class WaypointFollower():
 
     def move(self):
         
-        # ✅ 최신 waypoints 가져오기
+        #  최신 waypoints 가져오기
         latest_waypoints = self.agent.blackboard.get('waypoints', None)
 
-        # ✅ 기존 self.waypoints와 latest_waypoints가 다르면 업데이트
+        #  기존 self.waypoints와 latest_waypoints가 다르면 업데이트
         if latest_waypoints is not None and latest_waypoints != self.waypoints:
-            print(f"[WaypointFollower] Updating waypoints: {latest_waypoints}")
+           #print(f"[WaypointFollower] Updating waypoints: {latest_waypoints}")
             self.waypoints = latest_waypoints
             self.agent.blackboard['next_waypoint_index'] = 0
             self.next_waypoint_index = 0
@@ -461,6 +429,8 @@ class PickItem(SyncAction):
         # 작업 색상을 에이전트 이미지에 반영
         agent.task_color = assigned_task.color
         agent.update_image()
+        blackboard['waypoints'] = None
+        blackboard['goal_type'] = 'destination'  
                
         return Status.SUCCESS
 
@@ -478,7 +448,6 @@ class PlaceItem(SyncAction):
             agent.set_assigned_task_id(None)
             blackboard['assigned_task_id'] = None
             blackboard['ship_selected'] = False
-
 
         agent.task_color = None
         agent.update_image()

@@ -56,39 +56,59 @@ class Agent(BaseAgent):
         #print(f"Agent {self.agent_id}: Battery decreased by {battery_spending_rate:.2f}%")
 
     def update_image(self):
-        """현재 상태에 따라 이미지를 업데이트"""
-        if self.task_color == 'red':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_red_container.png')
-        elif self.task_color == 'blue':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_blue_container.png')
-        elif self.task_color == 'yellow':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_yellow_container.png')
-        elif self.task_color == 'green':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_green_container.png')
-        elif self.task_color == 'lime':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_lime_container.png')
-        elif self.task_color == 'teal':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_teal_container.png')
-        elif self.task_color == 'purple':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_purple_container.png')
-        elif self.task_color == 'pink':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_pink_container.png')
-        elif self.task_color == 'coral':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_coral_container.png')
-        elif self.task_color == 'skyblue':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_skyblue_container.png')
-        elif self.task_color == 'black':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_black_container.png')
-        elif self.task_color == 'white':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_white_container.png')
-        elif self.task_color == 'gray':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_gray_container.png')
-        elif self.task_color == 'brown':
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_brown_container.png')
+        if self.task_color is None:
+            image_path = 'scenarios/harbor_logistics/assets/agents/agent.png'
         else:
-            self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent.png')  # 기본 이미지
-        # 이미지 크기 조정
-        self.image = pygame.transform.scale(self.image, (50, 50))
+            image_path = f'scenarios/harbor_logistics/assets/agents/agent_with_{self.task_color}_container.png'
+
+        # 파일이 존재하는지 확인
+        if not os.path.exists(image_path):
+            #image_path = 'scenarios/harbor_logistics/assets/agents/agent.png' 
+            return
+        try:
+            new_image = pygame.image.load(image_path)
+            new_image = pygame.transform.scale(new_image, (50, 50))
+            print(f" 변경 전 이미지 객체 ID: {id(self.image)}")
+            # 이미지 업데이트
+            self.image = new_image  
+            print(f" 변경 후 이미지 객체 ID: {id(self.image)}")
+                   
+        except Exception as e:
+            print(f"⚠️ ERROR: Failed to load image for {self.task_color}: {e}")
+        
+        # """현재 상태에 따라 이미지를 업데이트"""
+        # if self.task_color == 'red':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_red_container.png')
+        # elif self.task_color == 'blue':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_blue_container.png')
+        # elif self.task_color == 'yellow':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_yellow_container.png')
+        # elif self.task_color == 'green':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_green_container.png')
+        # elif self.task_color == 'lime':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_lime_container.png')
+        # elif self.task_color == 'teal':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_teal_container.png')
+        # elif self.task_color == 'purple':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_purple_container.png')
+        # elif self.task_color == 'pink':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_pink_container.png')
+        # elif self.task_color == 'coral':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_coral_container.png')
+        # elif self.task_color == 'skyblue':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_skyblue_container.png')
+        # elif self.task_color == 'black':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_black_container.png')
+        # elif self.task_color == 'white':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_white_container.png')
+        # elif self.task_color == 'gray':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_gray_container.png')
+        # elif self.task_color == 'brown':
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent_with_brown_container.png')
+        # else:
+        #     self.image = pygame.image.load('scenarios/harbor_logistics/assets/agents/agent.png')  # 기본 이미지
+        # # 이미지 크기 조정
+        # self.image = pygame.transform.scale(self.image, (50, 50))
     
     def draw_waypoints(self, screen):
         """
@@ -159,10 +179,12 @@ class Agent(BaseAgent):
 
 
     def draw(self, screen):
+        if config['simulation']['rendering_options'].get('agent_path_visualization', True):
+            self.draw_waypoints(screen)
         rotated_image = pygame.transform.rotate(self.image, -math.degrees(self.rotation))
         new_rect = rotated_image.get_rect(center=(self.position.x, self.position.y))
         screen.blit(rotated_image, new_rect.topleft)
-
+        
         # 렌더링 옵션에서 배터리 상태 표시 활성화 확인
         if config['simulation']['rendering_options'].get('agent_battery_status', True):
             # 배터리 상태를 항상 100으로 표시
