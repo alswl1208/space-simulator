@@ -245,6 +245,7 @@ class PlanPath(SyncAction):
         blackboard['waypoints'] = waypoints
         print(f"[PlanPath] Agent {agent.agent_id}: Planned path to {goal_type}: {waypoints}")
         blackboard['next_waypoint_index'] = 0
+        self.next_waypoint_index = 0
         return Status.SUCCESS
 
 class GoToShip(SyncAction):
@@ -351,15 +352,22 @@ class WaypointFollower():
 
     def move(self):
         
-        # # 1. waypoints가 비어있는지 확인
-        # if not self.waypoints:
-        #     self.waypoints = self.agent.blackboard.get('waypoints', None)
-        # print(f"🛠 [WaypointFollower] Agent {self.agent.agent_id} waypoints before move: {self.waypoints}")
-        self.waypoints = self.agent.blackboard.get('waypoints', None)
-        # # 2. next_waypoint_index가 유효한지 확인
-        # if self.next_waypoint_index >= len(self.waypoints):
-        #     print(f"[ERROR] Invalid waypoint index: {self.next_waypoint_index}. Max index: {len(self.waypoints)-1}")
-        #     return "FAILURE"
+        # ✅ 최신 waypoints 가져오기
+        latest_waypoints = self.agent.blackboard.get('waypoints', None)
+
+        # ✅ 기존 self.waypoints와 latest_waypoints가 다르면 업데이트
+        if latest_waypoints is not None and latest_waypoints != self.waypoints:
+            print(f"[WaypointFollower] Updating waypoints: {latest_waypoints}")
+            self.waypoints = latest_waypoints
+            self.agent.blackboard['next_waypoint_index'] = 0
+            self.next_waypoint_index = 0
+        
+        if latest_waypoints is not None and latest_waypoints == self.waypoints:
+            if not self.agent.blackboard.get('reset_done', False):
+                if self.next_waypoint_index != 0:
+                    self.next_waypoint_index = 0
+                    self.agent.blackboard['reset_done'] = True
+                
 
         agent_position = self.agent.position
         next_waypoint = self.waypoints[self.next_waypoint_index]
@@ -468,6 +476,7 @@ class ChargeBattery(SyncAction):
             blackboard['waypoints'] = None
             blackboard['chosen_ship'] = None
             blackboard['ship_selected'] = False
-           #blackboard['next_waypoint_index'] = 0
+            blackboard['next_waypoint_index'] = 0
+            blackboard['reset_done'] = False
             return Status.SUCCESS
 
