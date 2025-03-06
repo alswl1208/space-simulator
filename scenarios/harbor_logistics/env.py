@@ -67,7 +67,7 @@ class Env(BaseEnv):
 
         # Resize container images
         destination_width = 80
-        destination_height = 300
+        destination_height = 290
         for color in self.destination_images:
             self.destination_images[color] = pygame.transform.scale(
                 self.destination_images[color], (destination_width, destination_height)
@@ -76,7 +76,7 @@ class Env(BaseEnv):
             start_x = 300  # 첫 번째 열의 x 좌표 시작점
             start_y = 300  # 첫 번째 행의 y 좌표 시작점
             x_spacing = 120  # 열 간격
-            y_spacing = 360  # 행 간격
+            y_spacing = 380  # 행 간격
 
         self.destination_positions = []
         for i in range(7):  # 7개 열
