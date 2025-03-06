@@ -87,6 +87,26 @@ class BaseAgent:
         return await self.tree.run(self, self.blackboard)
 
     def follow(self, target):
+        
+        # 만약 현재 에이전트가 정지 상태라면 아무것도 하지 않음
+        if self.blackboard.get('is_stopped', False):
+            self.velocity = pygame.Vector2(0, 0)
+            self.acceleration = pygame.Vector2(0, 0)
+            print(f" [Agent {self.agent_id}] 정지 상태 유지 중")
+            return  #  계속 정지 상태 유지
+        
+        for other_agent in self.env.agents:
+            if other_agent.blackboard.get('is_stopped', False):  # 정지된 에이전트 찾기
+                print(f" [Agent {other_agent.agent_id}] 정지 상태 유지 중")
+                other_agent.velocity = pygame.Vector2(0, 0)
+                other_agent.acceleration = pygame.Vector2(0, 0)
+                other_agent.angular_velocity = 0
+
+            else:  # is_stopped이 False이면 속도를 복구
+                if other_agent.velocity.length() == 0:  # 멈춰 있는 경우에만 복구
+                    print(f" [Agent {other_agent.agent_id}] 정지 해제! 속도 복귀")
+                    other_agent.velocity = pygame.Vector2(other_agent.max_speed, 0)  # 속도 복귀
+                    
         # Calculate desired velocity
         desired = target - self.position
         d = desired.length()

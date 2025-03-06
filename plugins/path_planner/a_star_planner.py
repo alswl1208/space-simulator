@@ -17,9 +17,9 @@ class AStarPlanner:
     #     closest_node = min(graph_nodes, key=lambda node: (node[0] - position[0])**2 + (node[1] - position[1])**2)
     #     return closest_node
 
-    def generate(self, start, goal):
+    def generate(self, start, goal, agent, avoid_previous=False):
         """A* 알고리즘을 사용하여 최단 경로 생성"""
-        graph = self.grid_graph.graph
+        graph = self.grid_graph.graph.copy()
 
         # 튜플 변환 보장
         if isinstance(start, tuple) is False:
@@ -28,17 +28,26 @@ class AStarPlanner:
             goal = (int(goal.x), int(goal.y))
 
         if start not in graph.nodes:
-            closest_start = min(graph.nodes, key=lambda node: (node[0] - start[0])**2 + (node[1] - start[1])**2)
-            start = closest_start if closest_start in graph.nodes else None
-        if start is None:
-            return []
-
+            start = min(graph.nodes, key=lambda node: (node[0] - start[0])**2 + (node[1] - start[1])**2)
         if goal not in graph.nodes:
-            # 가장 가까운 유효한 노드 찾기
-            closest_goal = min(graph.nodes, key=lambda node: (node[0] - goal[0])**2 + (node[1] - goal[1])**2)
-            goal = closest_goal if closest_goal in graph.nodes else None
-        if goal is None:
-            return []
+            goal = min(graph.nodes, key=lambda node: (node[0] - goal[0])**2 + (node[1] - goal[1])**2)
+
+        if avoid_previous:
+            previous_path = agent.blackboard.get('waypoints', [])
+            for node in previous_path:
+                if node != goal and node in graph.nodes and node != start:
+                    graph.remove_node(node)
+
+        agent_position = (int(agent.position.x), int(agent.position.y))
+
+        # 다른 에이전트 현재 위치 삭제
+        for other_agent in agent.env.agents:
+            if other_agent == agent:  # 자기 자신 제외
+                continue
+            other_position = (int(other_agent.position.x), int(other_agent.position.y))
+            if other_position in graph.nodes and other_position != agent_position:
+                if not avoid_previous or other_position not in previous_path:
+                    graph.remove_node(other_position)
 
         # 우선순위 큐 (F값, 노드)로 초기화
         open_set = [(0, start)]

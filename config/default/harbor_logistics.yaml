@@ -31,11 +31,7 @@ decision_making: # Case 3
 
 agents:
   behavior_tree_xml: default_bt.xml 
-<<<<<<< HEAD
-  quantity: 1
-=======
-  quantity: 15
->>>>>>> 15a03af97e2cb7d286646f011741d7d7653ca306
+  quantity: 2
   locations:
     x_min: 300 #500
     x_max: 1300 #1100
@@ -111,8 +107,9 @@ charging_station_position:
   offset_x: 10
 
 battery:
-  default_spending_rate: 0.1
+  default_spending_rate: 0.001
   task_spending_rate: 0.01  
 
 grid:
   size : 40
+  collision_check: 20

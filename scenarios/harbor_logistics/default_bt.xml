@@ -8,7 +8,13 @@
           <Fallback>
             <IsArrivedAtChargingStation/>
             <Sequence>
-              <PlanPath goal_type="charging_station"/>
+              <Fallback>
+                <Sequence>
+                  <PlanPath goal_type="charging_station"/>
+                  <IsPathBlocked/>
+                </Sequence>
+                <PlanPath goal_type="charging_station"/>
+              </Fallback>
               <GoToChargingStation/>
             </Sequence>
           </Fallback>
@@ -27,7 +33,13 @@
                   <IsArrivedAtShip/>
                   <Sequence>
                     <DecideShip/>
-                    <PlanPath goal_type="ship"/>
+                    <Fallback>
+                      <Sequence>
+                        <PlanPath goal_type="ship"/>
+                        <IsPathBlocked/>
+                      </Sequence>
+                      <PlanPath goal_type="ship"/>
+                    </Fallback>
                     <GoToShip/>
                   </Sequence>
                 </Fallback>
@@ -37,9 +49,15 @@
             <Fallback>
               <IsArrivedAtDestination/>
               <Sequence>
-                <PlanPath goal_type="destination"/>
+                <Fallback>
+                  <Sequence>
+                    <PlanPath goal_type="destination"/>
+                    <IsPathBlocked/>
+                  </Sequence>
+                  <PlanPath goal_type="destination"/>
+                </Fallback>
                 <GoToDestination/>
-                </Sequence>
+              </Sequence>
             </Fallback>
             <PlaceItem/>
           </Sequence>
@@ -69,6 +87,8 @@
     <Condition ID="IsFinishedTask"
                editable="true"/>
     <Condition ID="IsHoldingItem"
+               editable="true"/>
+    <Condition ID="IsPathBlocked"
                editable="true"/>
     <Action ID="LocalSensingNode"
             editable="true"/>

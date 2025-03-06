@@ -28,10 +28,10 @@ class Agent(BaseAgent):
         self.default_spending_rate = config['battery']['default_spending_rate']
         self.task_spending_rate = config['battery']['task_spending_rate']
 
-        # TTC 필요값
-        self.safe_distance = 30  # 안전 거리 
-        self.ttc_threshold = 3   # Time-To-Collision(TTC) 임계값
-
+        # # TTC 필요값
+        # self.safe_distance = 10.0  # 안전 거리 
+        # self.ttc_threshold = 10.0   # Time-To-Collision(TTC) 임계값
+    
     def update_battery(self):
 
         if self.blackboard.get('is_charging', False):
@@ -68,13 +68,11 @@ class Agent(BaseAgent):
         try:
             new_image = pygame.image.load(image_path)
             new_image = pygame.transform.scale(new_image, (50, 50))
-            print(f" 변경 전 이미지 객체 ID: {id(self.image)}")
             # 이미지 업데이트
             self.image = new_image  
-            print(f" 변경 후 이미지 객체 ID: {id(self.image)}")
                    
         except Exception as e:
-            print(f"⚠️ ERROR: Failed to load image for {self.task_color}: {e}")
+            print(f" ERROR: Failed to load image for {self.task_color}: {e}")
         
         # """현재 상태에 따라 이미지를 업데이트"""
         # if self.task_color == 'red':
@@ -141,7 +139,7 @@ class Agent(BaseAgent):
         """
         개선된 충돌 감지 로직: 
         1) 주변 에이전트 탐색
-        2) 내 앞쪽에 있는지 내적으로 확인
+        2) 내 앞쪽(시야각 60° 이내)에 있는지 확인
         3) Time-To-Collision(TTC) 계산 후 속도 조절
         """
         neighbors = self.get_agents_nearby()
@@ -157,27 +155,66 @@ class Agent(BaseAgent):
             if rel_speed_sq == 0:
                 continue
 
-            # 내적 계산 (앞쪽인지 확인)
+            # 내적 계산 (상대 방향 확인 → 같은 방향, 수직, 반대 방향 모두 감지)
             dot_product = dx * dvx + dy * dvy
-            if dot_product >= 0:  # 뒤에 있는 경우 무시
-                continue
 
-            # TTC 계산
+            # 이동 방향 벡터 (자신의 속도 방향)
+            my_direction = math.atan2(self.velocity.y, self.velocity.x)
+            # 상대 위치 벡터 (상대 에이전트의 위치)
+            relative_direction = math.atan2(dy, dx)
+            # 두 벡터의 각도 차이 (rad → degree 변환)
+            angle_diff = abs(math.degrees(my_direction - relative_direction)) % 360
+
+            # **TTC 계산**
             ttc = -dot_product / rel_speed_sq
-            if ttc < 0 or ttc > self.ttc_threshold:  # 3초 이상이면 신경 안 씀
-                continue
 
-            # 충돌 가능성이 높다면 감속
-            print(f" [Agent {self.agent_id}] 충돌 위험 감지! 속도 줄이기 (TTC={ttc:.2f})")
-            self.velocity.x *= 0.3
-            self.velocity.y *= 0.3
-            return True  # 감속 후 충돌 감지됨
+            # 디버깅용 출력
+            print(f" [Agent {self.agent_id}] (TTC={ttc:.2f}, angle_diff={angle_diff:.2f})")
+
+            #  **TTC가 양수면 충돌 감지하지 않음**
+            if ttc > 0:
+                continue  
+
+            #  **후방 충돌 감지 (뒤쪽 에이전트가 앞을 들이받는 상황)**
+            if -30 <= ttc <= 0 and 0 <= angle_diff <= 5:
+                print(f" [Agent {self.agent_id}], Agent {neighbor.agent_id} 후방 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            #  **정면 충돌 감지 (두 에이전트가 정면에서 부딪히는 상황)**
+            if -30 <= ttc <= 0 and 0 <= angle_diff <= 5:
+                print(f" [Agent {self.agent_id}], Agent {neighbor.agent_id} 정면 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            # #  **측면 충돌 감지 (교차로에서 만나는 경우)**
+            # if -30 <= ttc <= 0 and 40 <= angle_diff <= 50:
+            #     print(f"🚨 [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
+            #     self.velocity.x *= 0.3
+            #     self.velocity.y *= 0.3
+            #     return True
 
         return False  # 충돌 위험 없음
 
+    # def stop_agent(self, agent):
+    #     """에이전트 정지 함수: 속도 0, 가속도 0, 회전 고정"""
+    #     print(f" [Agent {agent.agent_id}] 정지 요청됨!")
+        
+    #     # 에이전트 정지
+    #     agent.blackboard['is_stopped'] = True
+    #     agent.velocity = pygame.Vector2(0, 0)
+    #     agent.acceleration = pygame.Vector2(0, 0)
+    #     agent.rotation = agent.rotation
 
-
-
+    # def resume_agent(self, agent):
+    #     """에이전트 이동 재개 함수"""
+    #     print(f" [Agent {agent.agent_id}] 이동 재개!")
+    #     agent.blackboard['is_resumed'] = True
+    #     agent.blackboard['is_stopped'] = False
+        
+                
     def draw(self, screen):
         if config['simulation']['rendering_options'].get('agent_path_visualization', True):
             self.draw_waypoints(screen)
