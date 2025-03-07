@@ -31,7 +31,7 @@ decision_making: # Case 3
 
 agents:
   behavior_tree_xml: default_bt.xml 
-  quantity: 2
+  quantity: 3
   locations:
     x_min: 300 #500
     x_max: 1300 #1100
@@ -112,4 +112,4 @@ battery:
 
 grid:
   size : 40
-  collision_check: 20
+  collision_check: 1

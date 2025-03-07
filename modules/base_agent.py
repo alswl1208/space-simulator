@@ -2,6 +2,8 @@ import pygame
 import math
 from modules.utils import config, parse_behavior_tree
 import importlib
+import time
+
 bt_module = importlib.import_module(config.get('scenario').get('environment') + ".bt_nodes")
 
 # Load agent configuration
@@ -44,6 +46,7 @@ class BaseAgent:
         self.assigned_task_id = None         # Local decision-making result.
         self.planned_tasks = []              # Local decision-making result.
 
+        self.stop_timer = None
 
     def create_behavior_tree(self, behavior_tree_xml):        
         xml_root = parse_behavior_tree(behavior_tree_xml)        
@@ -101,6 +104,7 @@ class BaseAgent:
                 other_agent.velocity = pygame.Vector2(0, 0)
                 other_agent.acceleration = pygame.Vector2(0, 0)
                 other_agent.angular_velocity = 0
+                other_agent.rotation = other_agent.rotation
 
             else:  # is_stopped이 False이면 속도를 복구
                 if other_agent.velocity.length() == 0:  # 멈춰 있는 경우에만 복구
@@ -127,6 +131,20 @@ class BaseAgent:
         self.acceleration += force
 
     def update(self):
+        
+        if self.blackboard.get('is_stopped', False):
+            if self.stop_timer is None:
+                self.stop_timer = time.time()  # 정지 시간 기록
+            elif time.time() - self.stop_timer > 5:  # 5초 후 강제 해제
+                self.blackboard['is_stopped'] = False
+                self.stop_timer = None
+                print(f"[Agent {self.agent_id}] 강제 정지 해제!")
+
+            self.velocity = pygame.Vector2(0, 0)
+            self.acceleration = pygame.Vector2(0, 0)
+            self.angular_velocity = 0
+            return  # 회전값도 그대로 유지
+        
         # Update velocity and position
         self.velocity += self.acceleration * sampling_time
         self.velocity = self.limit(self.velocity, self.max_speed)
@@ -139,7 +157,7 @@ class BaseAgent:
         self.memory_location.append((self.position.x, self.position.y))
         if len(self.memory_location) > agent_track_size:
             self.memory_location.pop(0)
-
+        
         # Update rotation
         desired_rotation = math.atan2(self.velocity.y, self.velocity.x)
         rotation_diff = desired_rotation - self.rotation

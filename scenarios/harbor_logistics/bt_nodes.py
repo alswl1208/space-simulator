@@ -207,11 +207,14 @@ class IsPathBlocked(SyncAction):
                 continue
             
             other_pos = other_agent.position  # 다른 에이전트의 현재 위치
+            other_x, other_y = int(other_pos.x), int(other_pos.y)
 
-            # 전체 경로에 다른 에이전트가 있는지 확인
-            if tuple((int(other_pos.x), int(other_pos.y))) in full_path:
-                path_blocked = True
-                print(f"[IsPathBlocked]  Agent {agent.agent_id}: Grid 기반 경로 차단 감지 (by Agent {other_agent.agent_id})")
+            # ±2 범위까지 확인 (오차 허용)
+            for dx in range(-2, 3):  # -2, -1, 0, 1, 2
+                for dy in range(-2, 3):
+                    if (other_x + dx, other_y + dy) in full_path:
+                                        path_blocked = True
+                                        print(f"[IsPathBlocked]  Agent {agent.agent_id}: Grid 기반 경로 차단 감지 (by Agent {other_agent.agent_id})")
 
         #  FAILURE 반환
         if ttc_collision_agent_id and path_blocked:
@@ -475,7 +478,7 @@ class WaypointFollower():
                     start_pos = pygame.Vector2(replanner_start_pos)
                     distance_moved = (current_pos - start_pos).length()
 
-                    if distance_moved >= 100:  #  50px 이상 이동한 경우에만 정지 해제
+                    if distance_moved >= 120:  #  이상 이동한 경우에만 정지 해제
                         self.agent.blackboard['is_stopped'] = False
             
         #  기존 self.waypoints와 latest_waypoints가 다르면 업데이트

@@ -45,9 +45,25 @@ class AStarPlanner:
             if other_agent == agent:  # 자기 자신 제외
                 continue
             other_position = (int(other_agent.position.x), int(other_agent.position.y))
-            if other_position in graph.nodes and other_position != agent_position:
-                if not avoid_previous or other_position not in previous_path:
-                    graph.remove_node(other_position)
+            if other_position in graph.nodes:
+                if other_position != agent_position and other_position != start and other_position != goal:                   
+                    if not avoid_previous or other_position not in previous_path:
+                        graph.remove_node(other_position)
+            else:
+                # 🔹 다른 에이전트의 다음 waypoint 가져오기
+                other_waypoints = other_agent.blackboard.get('waypoints', [])
+                if other_waypoints:
+                    next_waypoint = other_waypoints[0]  # 다음 목적지
+                    
+                    # 🔹 현재 에이전트 위치에서 next_waypoint 방향으로 가장 가까운 그리드 노드 찾기
+                    closest_node_in_direction = min(
+                        graph.nodes, 
+                        key=lambda node: (node[0] - next_waypoint[0])**2 + (node[1] - next_waypoint[1])**2
+                    )
+
+                    # 🔹 찾은 노드가 start 또는 goal과 다르면 삭제
+                    if closest_node_in_direction in graph.nodes and closest_node_in_direction != start and closest_node_in_direction != goal:
+                        graph.remove_node(closest_node_in_direction)  # 해당 노드를 삭제
 
         # 우선순위 큐 (F값, 노드)로 초기화
         open_set = [(0, start)]
