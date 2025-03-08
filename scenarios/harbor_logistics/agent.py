@@ -31,7 +31,7 @@ class Agent(BaseAgent):
         # # TTC 필요값
         # self.safe_distance = 10.0  # 안전 거리 
         # self.ttc_threshold = 10.0   # Time-To-Collision(TTC) 임계값
-    
+
     def update_battery(self):
 
         if self.blackboard.get('is_charging', False):
@@ -176,21 +176,21 @@ class Agent(BaseAgent):
                 continue  
 
             #  **후방 충돌 감지 (뒤쪽 에이전트가 앞을 들이받는 상황)**
-            if -30 <= ttc <= 0 and 0 <= angle_diff <= 8:
+            if -30 <= ttc <= 0 and 0 <= angle_diff <= 15:
                 print(f" [Agent {self.agent_id}], Agent {neighbor.agent_id} 후방 충돌 위험 감지! (TTC={ttc:.2f})")
                 self.velocity.x *= 0.3
                 self.velocity.y *= 0.3
                 return neighbor.agent_id
             
             #  **정면 충돌 감지 (두 에이전트가 정면에서 부딪히는 상황)**
-            if -30 <= ttc <= 0 and 0 <= angle_diff <= 8:
+            if -30 <= ttc <= -10 and 0 <= angle_diff <= 15:
                 print(f" [Agent {self.agent_id}], Agent {neighbor.agent_id} 정면 충돌 위험 감지! (TTC={ttc:.2f})")
                 self.velocity.x *= 0.3
                 self.velocity.y *= 0.3
                 return neighbor.agent_id
             
             # #  **측면 충돌 감지 (교차로에서 만나는 경우)**
-            if -30 <= ttc <= 0 and 350 <= angle_diff <= 390:
+            if -30 <= ttc <= -10 and 320 <= angle_diff <= 390:
                 print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
                 self.velocity.x *= 0.3
                 self.velocity.y *= 0.3
@@ -203,6 +203,12 @@ class Agent(BaseAgent):
                 return neighbor.agent_id
             
             if -12 <= ttc <= -10 and 30 <= angle_diff <= 35:
+                print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            if -64 <= ttc <= -60 and 0 <= angle_diff <= 5:
                 print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
                 self.velocity.x *= 0.3
                 self.velocity.y *= 0.3

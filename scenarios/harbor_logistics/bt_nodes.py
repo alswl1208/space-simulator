@@ -335,7 +335,7 @@ class PlanPath(SyncAction):
         start = agent.position
 
         if blackboard.get('request_new_path', False):
-            print(f"[PlanPath]  충돌 감지 → 대체 경로 탐색 시도!")
+            print(f"[PlanPath] Agent {agent.agent_id}: 충돌 감지 → 대체 경로 탐색 시도!")
             for other_agent in agent.env.agents:
                 other_agent.blackboard['replanner_agent_id'] = agent.agent_id
                 other_agent.blackboard['replanner_start_pos'] = (start.x, start.y)
@@ -451,21 +451,34 @@ class WaypointFollower():
     def __init__(self, agent, target_arrive_threshold):
         self.next_waypoint_index = 0  # Initialize the index for the next waypoint
         self.waypoints = None
+        self.remaining_waypoints = []
         self.agent = agent
         self.target_arrive_threshold = target_arrive_threshold
         
     def reset(self):
         self.next_waypoint_index = 0
         self.waypoints = None
+        self.remaining_waypoints = []
+        agent_id = self.agent.agent_id
+        remaining_waypoints_key = f'remaining_waypoints_{agent_id}'
+        self.agent.blackboard[remaining_waypoints_key] = []
 
     def set_waypoints(self, waypoints):
         self.waypoints = waypoints
+        self.remaining_waypoints = waypoints[:]
         self.agent.blackboard['next_waypoint_index'] = 0
 
     def move(self):
-
+        
         #  최신 waypoints 가져오기
         latest_waypoints = self.agent.blackboard.get('waypoints', None)
+        agent_id = self.agent.agent_id
+        remaining_waypoints_key = f'remaining_waypoints_{agent_id}'
+
+        if remaining_waypoints_key not in self.agent.blackboard:
+            self.agent.blackboard[remaining_waypoints_key] = []
+        
+        remaining_waypoints = self.agent.blackboard[remaining_waypoints_key]
 
         if latest_waypoints and self.agent.blackboard.get('is_stopped', False):
             replanner_id = self.agent.blackboard.get('replanner_agent_id', None)
@@ -487,12 +500,15 @@ class WaypointFollower():
             self.waypoints = latest_waypoints
             self.agent.blackboard['next_waypoint_index'] = 0
             self.next_waypoint_index = 0
+            self.agent.blackboard[remaining_waypoints_key] = latest_waypoints[:]
 
         if latest_waypoints is not None and latest_waypoints == self.waypoints:
             if not self.agent.blackboard.get('reset_done', False):
                 if self.next_waypoint_index != 0:
                     self.next_waypoint_index = 0
                     self.agent.blackboard['reset_done'] = True
+                    if not self.agent.blackboard.get(remaining_waypoints_key):
+                        self.agent.blackboard[remaining_waypoints_key] = latest_waypoints[:]
 
         agent_position = self.agent.position
         next_waypoint = self.waypoints[self.next_waypoint_index]
@@ -514,6 +530,11 @@ class WaypointFollower():
                 self.reset()
                 return Status.SUCCESS  # Return SUCCESS when all waypoints are visited
 
+        agent_position_tuple = (agent_position.x, agent_position.y)
+        self.agent.blackboard[remaining_waypoints_key] = [
+            wp for wp in self.agent.blackboard[remaining_waypoints_key]
+            if math.dist((wp[0], wp[1]), agent_position_tuple) > 2
+        ]
         self.agent.update_battery()
         self.agent.follow(next_waypoint)  # Command the agent to follow the current waypoint
 
