@@ -141,6 +141,7 @@ class IsArrivedAtChargingStation(SyncAction):
 class IsPathBlocked(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._check)
+        self.collision_threshold = 55
 
     def get_full_path(self, agent, waypoints):
         """
@@ -216,6 +217,30 @@ class IsPathBlocked(SyncAction):
                                         path_blocked = True
                                         print(f"[IsPathBlocked]  Agent {agent.agent_id}: Grid 기반 경로 차단 감지 (by Agent {other_agent.agent_id})")
 
+        # 하나의 경로만 겹치는 에이전트 찾기
+        for other_agent in agent.env.agents:
+            if other_agent == agent:
+                continue
+
+            other_waypoints = other_agent.blackboard.get("waypoints", [])
+            if not other_waypoints:
+                continue
+
+            #  "딱 하나만 겹치는" 경우 찾기
+            common_points = set(waypoints) & set(other_waypoints)
+            if len(common_points) == 1:  #  **겹치는 좌표가 1개일 때만 체크**
+                common_point = next(iter(common_points))  # 유일한 겹치는 좌표
+
+                # 두 에이전트 사이 거리 계산
+                distance = math.sqrt(
+                    (agent.position.x - other_agent.position.x) ** 2 +
+                    (agent.position.y - other_agent.position.y) ** 2
+                )
+
+                if distance < self.collision_threshold:
+                    print(f"[IsPathBlocked] Agent {agent.agent_id}: '{common_point}'에서 충돌 감지 (by Agent {other_agent.agent_id}), 거리: {distance:.2f}")
+                    return Status.FAILURE
+                
         #  FAILURE 반환
         if ttc_collision_agent_id and path_blocked:
             print(f"[IsPathBlocked]  Agent {agent.agent_id}: TTC + Grid 기반 경로 차단 감지됨 → FAILURE 반환")
