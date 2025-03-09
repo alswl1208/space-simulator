@@ -135,7 +135,7 @@ class BaseAgent:
         if self.blackboard.get('is_stopped', False):
             if self.stop_timer is None:
                 self.stop_timer = time.time()  # 정지 시간 기록
-            elif time.time() - self.stop_timer > 5:  # 5초 후 강제 해제
+            elif time.time() - self.stop_timer > 30:  # 5초 후 강제 해제
                 self.blackboard['is_stopped'] = False
                 self.stop_timer = None
                 print(f"[Agent {self.agent_id}] 강제 정지 해제!")

@@ -175,44 +175,174 @@ class Agent(BaseAgent):
             if ttc > 0:
                 continue  
 
-            #  **후방 충돌 감지 (뒤쪽 에이전트가 앞을 들이받는 상황)**
-            if -30 <= ttc <= 0 and 0 <= angle_diff <= 15:
-                print(f" [Agent {self.agent_id}], Agent {neighbor.agent_id} 후방 충돌 위험 감지! (TTC={ttc:.2f})")
+            # #  **가로, 세로 전방 충돌 감지 **
+            if -30 <= ttc <= -13 and 0 <= angle_diff <= 0.5:
+                print(f" [Agent {self.agent_id}], Agent {neighbor.agent_id}충돌 위험 감지! (TTC={ttc:.2f})")
                 self.velocity.x *= 0.3
                 self.velocity.y *= 0.3
                 return neighbor.agent_id
             
-            #  **정면 충돌 감지 (두 에이전트가 정면에서 부딪히는 상황)**
-            if -30 <= ttc <= -10 and 0 <= angle_diff <= 15:
+            # if -28 <= ttc <= -27 and 0 <= angle_diff <= 0.5:
+            #     print(f" [Agent {self.agent_id}], Agent {neighbor.agent_id} 후방 충돌 위험 감지! (TTC={ttc:.2f})")
+            #     self.velocity.x *= 0.3
+            #     self.velocity.y *= 0.3
+            #     return neighbor.agent_id
+            
+            # #  **세로 후방 충돌 감지(아래 에이전트)**
+            if -19 <= ttc <= -17 and 48 <= angle_diff <= 50:
+                print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            # if -30 <= ttc <= -29 and 0 <= angle_diff <= 0.5:
+            #     print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
+            #     self.velocity.x *= 0.3
+            #     self.velocity.y *= 0.3
+            #     return neighbor.agent_id
+            
+            # #  **세로 후방 충돌 감지(위 에이전트)**
+            if -78 <= ttc <= -76 and 0.8 <= angle_diff <= 1:
                 print(f" [Agent {self.agent_id}], Agent {neighbor.agent_id} 정면 충돌 위험 감지! (TTC={ttc:.2f})")
                 self.velocity.x *= 0.3
                 self.velocity.y *= 0.3
                 return neighbor.agent_id
             
-            # #  **측면 충돌 감지 (교차로에서 만나는 경우)**
-            if -30 <= ttc <= -10 and 320 <= angle_diff <= 390:
+            if -38 <= ttc <= -36 and 0 <= angle_diff <= 0.5:
+                print(f" [Agent {self.agent_id}], Agent {neighbor.agent_id} 정면 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            # # #  **세로 후방 충돌 감지(아래 에이전트)**
+            # if -27 <= ttc <= -25 and 0 <= angle_diff <= 0.5:
+            #     print(f" [Agent {self.agent_id}], Agent {neighbor.agent_id} 정면 충돌 위험 감지! (TTC={ttc:.2f})")
+            #     self.velocity.x *= 0.3
+            #     self.velocity.y *= 0.3
+            #     return neighbor.agent_id
+
+            # # # #  **가로 후방 충돌 감지** (뒤 에이전트)
+            # if -30 <= ttc <= -29 and 0 <= angle_diff <= 0.5:
+            #     print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
+            #     self.velocity.x *= 0.3
+            #     self.velocity.y *= 0.3
+            #     return neighbor.agent_id
+                        
+            # # #  **세로 측면 충돌 감지** (아래 에이전트가 위의 에이전트 좌측면 충돌)
+            if -8 <= ttc <= -6.5 and 10 <= angle_diff <= 14:
+                print(f" [Agent {self.agent_id}]충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            if -25 <= ttc <= -16 and 280 <= angle_diff <= 285:
+                print(f" [Agent {self.agent_id}]충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            # # #  **세로 측면 충돌 감지** (위 에이전트가 아래의 에이전트 우측면 충돌)
+            if -22 <= ttc <= -16 and 13 <= angle_diff <= 19:
+                print(f" [Agent {self.agent_id}]충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            if -22 <= ttc <= -17 and 288 <= angle_diff <= 291:
+                print(f" [Agent {self.agent_id}]충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            if -23 <= ttc <= -18 and 0 <= angle_diff <= 7:
                 print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
                 self.velocity.x *= 0.3
                 self.velocity.y *= 0.3
                 return neighbor.agent_id
             
-            if -20 <= ttc <= 0 and 40 <= angle_diff <= 55:
+            # # # #  **가로 측면 충돌 감지** (오른쪽 에이전트가 왼쪽 에이전트 우측면 충돌)
+            if -12 <= ttc <= -8 and 0 <= angle_diff <= 5:
+                print(f" [Agent {self.agent_id} 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            if -25 <= ttc <= -22 and 5 <= angle_diff <= 8:
+                print(f" [Agent {self.agent_id}] 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            if -30 <= ttc <= -14 and 320 <= angle_diff <= 360:
+                print(f" [Agent {self.agent_id}] 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            # # # #  **가로 측면 충돌 감지** (오른쪽 에이전트가 왼쪽 에이전트 좌측면 충돌)
+            if -20 <= ttc <= -7 and 337 <= angle_diff <= 359:
+                print(f" [Agent {self.agent_id}] 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            if -22 <= ttc <= -16 and 76 <= angle_diff <= 80:
+                print(f" [Agent {self.agent_id}] 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            # # # #  **가로 측면 충돌 감지** (왼쪽 에이전트가 오른쪽 에이전트 좌측면 충돌)
+            if -25 <= ttc <= -23 and 87 <= angle_diff <= 89:
+                print(f" [Agent {self.agent_id}] 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            # # # # #  **가로 측면 충돌 감지** (왼쪽 에이전트가 오른쪽 에이전트 우측면 충돌)
+            # if -28 <= ttc <= -25 and 0 <= angle_diff <= 5:
+            #     print(f" [Agent {self.agent_id}] 충돌 위험 감지! (TTC={ttc:.2f})")
+            #     self.velocity.x *= 0.3
+            #     self.velocity.y *= 0.3
+            #     return neighbor.agent_id
+            
+            # # #  **측면 충돌 감지** (한 점에서 만날때)
+            if -45 <= ttc <= -17 and 30 <= angle_diff <= 65:
                 print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
                 self.velocity.x *= 0.3
                 self.velocity.y *= 0.3
                 return neighbor.agent_id
             
-            if -12 <= ttc <= -10 and 30 <= angle_diff <= 35:
-                print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
+            if -19 <= ttc <= -17 and 40 <= angle_diff <= 41:
+                print(f" [Agent {self.agent_id}] 충돌 위험 감지! (TTC={ttc:.2f})")
                 self.velocity.x *= 0.3
                 self.velocity.y *= 0.3
                 return neighbor.agent_id
             
-            if -64 <= ttc <= -60 and 0 <= angle_diff <= 5:
-                print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
+            if -14 <= ttc <= -11 and 49 <= angle_diff <= 52:
+                print(f" [Agent {self.agent_id}] 충돌 위험 감지! (TTC={ttc:.2f})")
                 self.velocity.x *= 0.3
                 self.velocity.y *= 0.3
                 return neighbor.agent_id
+            
+            # 만나는 한 점까지 경로가 겹치지 않을때 임시
+            if -4 <= ttc <= 0 and 0 <= angle_diff <= 15:
+                print(f" [Agent {self.agent_id}] 충돌 위험 감지! (TTC={ttc:.2f})")
+                self.velocity.x *= 0.3
+                self.velocity.y *= 0.3
+                return neighbor.agent_id
+            
+            # if -12 <= ttc <= -10 and 30 <= angle_diff <= 35:
+            #     print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
+            #     self.velocity.x *= 0.3
+            #     self.velocity.y *= 0.3
+            #     return neighbor.agent_id
+            
+            # if -64 <= ttc <= -60 and 0 <= angle_diff <= 5:
+            #     print(f" [Agent {self.agent_id}] 측면 충돌 위험 감지! (TTC={ttc:.2f})")
+            #     self.velocity.x *= 0.3
+            #     self.velocity.y *= 0.3
+            #     return neighbor.agent_id
         
         return False  # 충돌 위험 없음
 
