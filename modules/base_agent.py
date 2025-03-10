@@ -135,15 +135,20 @@ class BaseAgent:
         if self.blackboard.get('is_stopped', False):
             if self.stop_timer is None:
                 self.stop_timer = time.time()  # 정지 시간 기록
-            elif time.time() - self.stop_timer > 30:  # 5초 후 강제 해제
+            elif time.time() - self.stop_timer > 15:  # 25초 후 강제 해제
                 self.blackboard['is_stopped'] = False
                 self.stop_timer = None
+                self.blackboard['stopped_recently'] = True
+                self.blackboard['stopped_time'] = time.time()
                 print(f"[Agent {self.agent_id}] 강제 정지 해제!")
 
             self.velocity = pygame.Vector2(0, 0)
             self.acceleration = pygame.Vector2(0, 0)
             self.angular_velocity = 0
             return  # 회전값도 그대로 유지
+        
+        if self.blackboard.get('stopped_recently', False) and time.time() - self.blackboard['stopped_time'] > 5:
+            self.blackboard['stopped_recently'] = False
         
         # Update velocity and position
         self.velocity += self.acceleration * sampling_time

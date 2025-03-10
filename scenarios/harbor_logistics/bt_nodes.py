@@ -226,6 +226,9 @@ class IsPathBlocked(SyncAction):
             if not other_waypoints:
                 continue
 
+            if other_agent.blackboard.get('is_stopped', False):  # 이미 멈춰있다면 추가 정지 방지
+                continue
+
             #  "딱 하나만 겹치는" 경우 찾기
             common_points = set(waypoints) & set(other_waypoints)
             if len(common_points) == 1:  #  **겹치는 좌표가 1개일 때만 체크**
@@ -238,8 +241,14 @@ class IsPathBlocked(SyncAction):
                 )
 
                 if distance < self.collision_threshold:
-                    print(f"[IsPathBlocked] Agent {agent.agent_id}: '{common_point}'에서 충돌 감지 (by Agent {other_agent.agent_id}), 거리: {distance:.2f}")
-                    return Status.FAILURE
+                    if not agent.blackboard.get('stopped_recently', False):
+                        print(f"[IsPathBlocked] Agent {agent.agent_id}: '{common_point}'에서 충돌 감지 (by Agent {other_agent.agent_id}), 거리: {distance:.2f}")
+                        blackboard['request_new_path'] = True
+                        other_agent.blackboard['is_stopped'] = True
+                        agent.blackboard['stopped_recently'] = True
+                        agent.blackboard['stopped_time'] = time.time()
+                        print(f"[IsPathBlocked] Agent {other_agent.agent_id} 정지됨 (by Agent {agent.agent_id})")
+                        return Status.FAILURE
                 
         #  FAILURE 반환
         if ttc_collision_agent_id and path_blocked:
@@ -516,7 +525,7 @@ class WaypointFollower():
                     start_pos = pygame.Vector2(replanner_start_pos)
                     distance_moved = (current_pos - start_pos).length()
 
-                    if distance_moved >= 120:  #  이상 이동한 경우에만 정지 해제
+                    if distance_moved >= 125:  #  이상 이동한 경우에만 정지 해제
                         self.agent.blackboard['is_stopped'] = False
             
         #  기존 self.waypoints와 latest_waypoints가 다르면 업데이트
