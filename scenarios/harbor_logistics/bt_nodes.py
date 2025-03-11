@@ -141,127 +141,35 @@ class IsArrivedAtChargingStation(SyncAction):
 class IsPathBlocked(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._check)
-        self.collision_threshold = 55
-
-    def get_full_path(self, agent, waypoints):
-        """
-        grid_size를 기반으로 waypoints 간 이동 방향을 보고 X → Y 또는 Y → X로 순서 결정
-        """
-        full_path = []
-        grid_size = agent.env.config["grid"]["collision_check"]  
-
-        for i in range(len(waypoints) - 1):
-            x1, y1 = waypoints[i]
-            x2, y2 = waypoints[i + 1]
-
-            #  먼저 이동해야 할 방향 결정 (X → Y or Y → X)
-            if x1 == x2:  # X가 같으면 Y 방향 먼저 이동
-                first_move = 'y'
-            elif y1 == y2:  # Y가 같으면 X 방향 먼저 이동
-                first_move = 'x'
-            else:
-                first_move = 'x' if abs(x2 - x1) > abs(y2 - y1) else 'y'  # 더 큰 변화량 먼저 이동
-
-            #  선택된 방향으로 먼저 보강
-            if first_move == 'x':  # X 먼저 이동
-                step = grid_size if x2 > x1 else -grid_size
-                for x in range(x1, x2 + step, step):
-                    full_path.append((x, y1))  # Y는 그대로
-
-                step = grid_size if y2 > y1 else -grid_size  # 이후 Y 이동
-                for y in range(y1, y2 + step, step):
-                    full_path.append((x2, y))  # 최종 X 유지
-
-            else:  # Y 먼저 이동
-                step = grid_size if y2 > y1 else -grid_size
-                for y in range(y1, y2 + step, step):
-                    full_path.append((x1, y))  # X는 그대로
-
-                step = grid_size if x2 > x1 else -grid_size  # 이후 X 이동
-                for x in range(x1, x2 + step, step):
-                    full_path.append((x, y2))  # 최종 Y 유지
-
-        full_path = list(dict.fromkeys(full_path))  # 중복 제거 (순서 유지)
-        #print(f"[get_full_path] Agent {agent.agent_id}: 보강된 waypoints = {full_path}")
-        return full_path
+        self.stop_threshold = 40
+        self.resume_threshold = 120
         
     def _check(self, agent, blackboard):
         """
-        TTC(Time-To-Collision) 및 보강된 경로 차단 감지를 동시에 수행
-        두 조건이 모두 충족될 경우 FAILURE 반환.
+        노드 하나 차이일때 fail 반환
+        멀어지면 정지 해제
         """
-        #  1. TTC 충돌 감지
-        ttc_collision_agent_id = agent.check_collision(agent.env.agents)  
-
-        #  2. 경로 차단 감지 (grid_size 기반)
-        waypoints = blackboard.get('waypoints', [])
-        if not waypoints:
-            return Status.FAILURE  # 경로가 없다면 실패 반환
-
-        # config에서 grid_size를 가져와 보강된 전체 경로 가져오기
-        full_path = self.get_full_path(agent, waypoints)
-
-        path_blocked = False  # 초기값 설정
+        if agent.discrete_position is None:
+            return Status.SUCCESS
 
         for other_agent in agent.env.agents:
-            if other_agent == agent:  # 자기 자신 제외
+            if other_agent == agent or other_agent.discrete_position is None:
                 continue
             
-            other_pos = other_agent.position  # 다른 에이전트의 현재 위치
-            other_x, other_y = int(other_pos.x), int(other_pos.y)
+            dist_x = abs(agent.discrete_position[0] - other_agent.discrete_position[0])
+            dist_y = abs(agent.discrete_position[1] - other_agent.discrete_position[1])
+            node_distance = dist_x + dist_y
 
-            # ±2 범위까지 확인 (오차 허용)
-            for dx in range(-2, 3):  # -2, -1, 0, 1, 2
-                for dy in range(-2, 3):
-                    if (other_x + dx, other_y + dy) in full_path:
-                                        path_blocked = True
-                                        print(f"[IsPathBlocked]  Agent {agent.agent_id}: Grid 기반 경로 차단 감지 (by Agent {other_agent.agent_id})")
+            if node_distance == self.stop_threshold and not blackboard.get("is_stopped", False):
+                blackboard['request_new_path'] = True  # 내 에이전트 경로 재계획 요청
+                other_agent.blackboard['is_stopped'] = True  # 상대 에이전트 정지
+                print(f"[IsPathBlocked] 🚨 Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
+                return Status.FAILURE  # 경로 재계획을 트리거
 
-        # 하나의 경로만 겹치는 에이전트 찾기
-        for other_agent in agent.env.agents:
-            if other_agent == agent:
-                continue
-
-            other_waypoints = other_agent.blackboard.get("waypoints", [])
-            if not other_waypoints:
-                continue
-
-            if other_agent.blackboard.get('is_stopped', False):  # 이미 멈춰있다면 추가 정지 방지
-                continue
-
-            #  "딱 하나만 겹치는" 경우 찾기
-            common_points = set(waypoints) & set(other_waypoints)
-            if len(common_points) == 1:  #  **겹치는 좌표가 1개일 때만 체크**
-                common_point = next(iter(common_points))  # 유일한 겹치는 좌표
-
-                # 두 에이전트 사이 거리 계산
-                distance = math.sqrt(
-                    (agent.position.x - other_agent.position.x) ** 2 +
-                    (agent.position.y - other_agent.position.y) ** 2
-                )
-
-                if distance < self.collision_threshold:
-                    if not agent.blackboard.get('stopped_recently', False):
-                        print(f"[IsPathBlocked] Agent {agent.agent_id}: '{common_point}'에서 충돌 감지 (by Agent {other_agent.agent_id}), 거리: {distance:.2f}")
-                        blackboard['request_new_path'] = True
-                        other_agent.blackboard['is_stopped'] = True
-                        agent.blackboard['stopped_recently'] = True
-                        agent.blackboard['stopped_time'] = time.time()
-                        print(f"[IsPathBlocked] Agent {other_agent.agent_id} 정지됨 (by Agent {agent.agent_id})")
-                        return Status.FAILURE
-                
-        #  FAILURE 반환
-        if ttc_collision_agent_id and path_blocked:
-            print(f"[IsPathBlocked]  Agent {agent.agent_id}: TTC + Grid 기반 경로 차단 감지됨 → FAILURE 반환")
-            blackboard['request_new_path'] = True
-            #  충돌 감지된 에이전트 정지 (FAILURE 반환 전에 실행)
-            for other_agent in agent.env.agents:
-                if other_agent.agent_id == ttc_collision_agent_id:
-                    agent.blackboard['ttc_collision_agent_id'] = ttc_collision_agent_id
-                    other_agent.blackboard['is_stopped'] = True
-                    break  # 더 이상 확인할 필요 없음, 루프 종료
-
-            return Status.FAILURE  
+            elif node_distance >= self.resume_threshold and other_agent.blackboard.get('is_stopped', False):
+                other_agent.blackboard['is_stopped'] = False  # 상대 에이전트 이동 재개
+                blackboard['is_stopped'] = False
+                print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 멀어짐 → {other_agent.agent_id} 이동 재개")
 
         return Status.SUCCESS
 
@@ -370,9 +278,6 @@ class PlanPath(SyncAction):
 
         if blackboard.get('request_new_path', False):
             print(f"[PlanPath] Agent {agent.agent_id}: 충돌 감지 → 대체 경로 탐색 시도!")
-            for other_agent in agent.env.agents:
-                other_agent.blackboard['replanner_agent_id'] = agent.agent_id
-                other_agent.blackboard['replanner_start_pos'] = (start.x, start.y)
             waypoints = self.path_planner.generate(start, goal, agent, avoid_previous=blackboard.get('request_new_path', False))
         else:
             waypoints = self.path_planner.generate(start, goal, agent)
@@ -397,9 +302,6 @@ class GoToShip(SyncAction):
         self.waypoint_follower = WaypointFollower(agent, target_arrive_threshold)
  
     def _move(self, agent, blackboard):
-        
-        if agent.check_collision(agent.env.agents):
-            return Status.FAILURE
 
         if blackboard.get('is_going_to_charging_station', False):
             return Status.FAILURE
@@ -425,9 +327,6 @@ class GoToDestination(SyncAction):
         self.waypoint_follower = WaypointFollower(agent, target_arrive_threshold)
   
     def _move(self, agent, blackboard):
-        
-        if agent.check_collision(agent.env.agents):
-            return Status.FAILURE
 
         if blackboard.get('is_going_to_charging_station', False):
             return Status.FAILURE
@@ -437,10 +336,7 @@ class GoToDestination(SyncAction):
         
         if blackboard.get('status') == "AtShip":
              return Status.FAILURE
-
-        if agent.check_collision(agent.env.agents):
-            return Status.FAILURE
-
+        
         goal_type = blackboard.get('goal_type', None)
 
         # Waypoint Following        
@@ -459,9 +355,6 @@ class GoToChargingStation(SyncAction):
 
     def _move(self, agent, blackboard):
         
-        if agent.check_collision(agent.env.agents):
-            return Status.FAILURE
-
         if blackboard.get('is_charging', False):  # 충전 중일 때는 이동 금지
             return Status.FAILURE
         
@@ -514,20 +407,6 @@ class WaypointFollower():
         
         remaining_waypoints = self.agent.blackboard[remaining_waypoints_key]
 
-        if latest_waypoints and self.agent.blackboard.get('is_stopped', False):
-            replanner_id = self.agent.blackboard.get('replanner_agent_id', None)
-            replanner_start_pos = self.agent.blackboard.get('replanner_start_pos', None)
-            if replanner_id is not None and replanner_start_pos is not None:
-                replanner_agent = next((a for a in self.agent.env.agents if a.agent_id == replanner_id), None)
-
-                if replanner_agent:
-                    current_pos = replanner_agent.position
-                    start_pos = pygame.Vector2(replanner_start_pos)
-                    distance_moved = (current_pos - start_pos).length()
-
-                    if distance_moved >= 125:  #  이상 이동한 경우에만 정지 해제
-                        self.agent.blackboard['is_stopped'] = False
-            
         #  기존 self.waypoints와 latest_waypoints가 다르면 업데이트
         if latest_waypoints is not None and latest_waypoints != self.waypoints:
            #print(f"[WaypointFollower] Updating waypoints: {latest_waypoints}")
@@ -569,6 +448,7 @@ class WaypointFollower():
             wp for wp in self.agent.blackboard[remaining_waypoints_key]
             if math.dist((wp[0], wp[1]), agent_position_tuple) > 2
         ]
+
         self.agent.update_battery()
         self.agent.follow(next_waypoint)  # Command the agent to follow the current waypoint
 

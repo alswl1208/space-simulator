@@ -32,48 +32,19 @@ class AStarPlanner:
         if goal not in graph.nodes:
             goal = min(graph.nodes, key=lambda node: (node[0] - goal[0])**2 + (node[1] - goal[1])**2)
 
-        if avoid_previous:
-            previous_path = agent.blackboard.get('waypoints', [])
-            for node in previous_path:
-                if node != goal and node in graph.nodes and node != start:
-                    graph.remove_node(node)
+        avoid_nodes = set()
 
-            agent_position = (int(agent.position.x), int(agent.position.y))
+        for other_agent in agent.env.agents:
+            if other_agent == agent:  # 자기 자신 제외
+                continue
 
-            # 다른 에이전트 현재 위치 삭제
-            for other_agent in agent.env.agents:
-                if other_agent == agent:  # 자기 자신 제외
-                    continue
-                other_position = (int(other_agent.position.x), int(other_agent.position.y))
-                if other_position in graph.nodes:
-                    if other_position != agent_position and other_position != start and other_position != goal:                   
-                        if not avoid_previous or other_position not in previous_path:
-                            graph.remove_node(other_position)
-                else:
-                    remaining_waypoints_key = f'remaining_waypoints_{other_agent.agent_id}'
-                    remaining_waypoints = other_agent.blackboard.get(remaining_waypoints_key, [])
+            if other_agent.discrete_position:
+                avoid_nodes.add(other_agent.discrete_position)  # 다른 에이전트의 discrete_position을 장애물로 설정
 
-                    if remaining_waypoints:
-                        next_waypoint = remaining_waypoints[0]
-                        # other_position에서 next_waypoint 방향 벡터 계산
-                        direction = (next_waypoint[0] - other_position[0], next_waypoint[1] - other_position[1])
-
-                        if direction != (0, 0):
-                            # 현재 위치에서 가장 가까운 두 개의 노드 찾기
-                            candidate_nodes = sorted(
-                                graph.nodes,
-                                key=lambda node: (node[0] - other_position[0])**2 + (node[1] - other_position[1])**2
-                            )[:2]  # 가까운 2개 노드 선택
-
-                            # 이 두 개의 노드 중에서 `next_waypoint`와 더 가까운 노드 선택
-                            closest_node = min(
-                                candidate_nodes,
-                                key=lambda node: (node[0] - next_waypoint[0])**2 + (node[1] - next_waypoint[1])**2
-                            )
-
-                            # closest_node가 유효한지 확인 후 삭제 (start, goal은 삭제 X)
-                            if closest_node in graph.nodes and closest_node != start and closest_node != goal:
-                                graph.remove_node(closest_node)
+        #  장애물 노드 제거 (start, goal은 제외)
+        for node in avoid_nodes:
+            if node in graph.nodes and node != start and node != goal:
+                graph.remove_node(node)
 
         # 우선순위 큐 (F값, 노드)로 초기화
         open_set = [(0, start)]
@@ -98,6 +69,8 @@ class AStarPlanner:
                 return path
 
             for neighbor in graph.neighbors(current):
+                if neighbor in avoid_nodes:  
+                    continue
                 edge_weight = graph.get_edge_data(current, neighbor).get("weight", 1)  # 가중치 반영
                 tentative_g_score = g_score[current] + edge_weight
 

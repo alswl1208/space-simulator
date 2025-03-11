@@ -98,18 +98,18 @@ class BaseAgent:
             print(f" [Agent {self.agent_id}] 정지 상태 유지 중")
             return  #  계속 정지 상태 유지
         
-        for other_agent in self.env.agents:
-            if other_agent.blackboard.get('is_stopped', False):  # 정지된 에이전트 찾기
-                print(f" [Agent {other_agent.agent_id}] 정지 상태 유지 중")
-                other_agent.velocity = pygame.Vector2(0, 0)
-                other_agent.acceleration = pygame.Vector2(0, 0)
-                other_agent.angular_velocity = 0
-                other_agent.rotation = other_agent.rotation
+        # for other_agent in self.env.agents:
+        #     if other_agent.blackboard.get('is_stopped', False):  # 정지된 에이전트 찾기
+        #         print(f" [Agent {other_agent.agent_id}] 정지 상태 유지 중")
+        #         other_agent.velocity = pygame.Vector2(0, 0)
+        #         other_agent.acceleration = pygame.Vector2(0, 0)
+        #         other_agent.angular_velocity = 0
+        #         other_agent.rotation = other_agent.rotation
 
-            else:  # is_stopped이 False이면 속도를 복구
-                if other_agent.velocity.length() == 0:  # 멈춰 있는 경우에만 복구
-                    print(f" [Agent {other_agent.agent_id}] 정지 해제! 속도 복귀")
-                    other_agent.velocity = pygame.Vector2(other_agent.max_speed, 0)  # 속도 복귀
+        #     else:  # is_stopped이 False이면 속도를 복구
+        #         if other_agent.velocity.length() == 0:  # 멈춰 있는 경우에만 복구
+        #             print(f" [Agent {other_agent.agent_id}] 정지 해제! 속도 복귀")
+        #             other_agent.velocity = pygame.Vector2(other_agent.max_speed, 0)  # 속도 복귀
                     
         # Calculate desired velocity
         desired = target - self.position
@@ -132,23 +132,12 @@ class BaseAgent:
 
     def update(self):
         
-        if self.blackboard.get('is_stopped', False):
-            if self.stop_timer is None:
-                self.stop_timer = time.time()  # 정지 시간 기록
-            elif time.time() - self.stop_timer > 15:  # 25초 후 강제 해제
-                self.blackboard['is_stopped'] = False
-                self.stop_timer = None
-                self.blackboard['stopped_recently'] = True
-                self.blackboard['stopped_time'] = time.time()
-                print(f"[Agent {self.agent_id}] 강제 정지 해제!")
+        self.update_discrete_position()
 
+        if self.blackboard.get('is_stopped', False):
             self.velocity = pygame.Vector2(0, 0)
             self.acceleration = pygame.Vector2(0, 0)
-            self.angular_velocity = 0
-            return  # 회전값도 그대로 유지
-        
-        if self.blackboard.get('stopped_recently', False) and time.time() - self.blackboard['stopped_time'] > 5:
-            self.blackboard['stopped_recently'] = False
+            return  # 정지 상태에서는 위치와 회전 변경 X
         
         # Update velocity and position
         self.velocity += self.acceleration * sampling_time
