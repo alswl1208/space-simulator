@@ -94,23 +94,10 @@ class BaseAgent:
         # 만약 현재 에이전트가 정지 상태라면 아무것도 하지 않음
         if self.blackboard.get('is_stopped', False):
             self.velocity = pygame.Vector2(0, 0)
-            self.acceleration = pygame.Vector2(0, 0)
+            #self.acceleration = pygame.Vector2(0, 0)
             print(f" [Agent {self.agent_id}] 정지 상태 유지 중")
             return  #  계속 정지 상태 유지
         
-        # for other_agent in self.env.agents:
-        #     if other_agent.blackboard.get('is_stopped', False):  # 정지된 에이전트 찾기
-        #         print(f" [Agent {other_agent.agent_id}] 정지 상태 유지 중")
-        #         other_agent.velocity = pygame.Vector2(0, 0)
-        #         other_agent.acceleration = pygame.Vector2(0, 0)
-        #         other_agent.angular_velocity = 0
-        #         other_agent.rotation = other_agent.rotation
-
-        #     else:  # is_stopped이 False이면 속도를 복구
-        #         if other_agent.velocity.length() == 0:  # 멈춰 있는 경우에만 복구
-        #             print(f" [Agent {other_agent.agent_id}] 정지 해제! 속도 복귀")
-        #             other_agent.velocity = pygame.Vector2(other_agent.max_speed, 0)  # 속도 복귀
-                    
         # Calculate desired velocity
         desired = target - self.position
         d = desired.length()
@@ -122,7 +109,7 @@ class BaseAgent:
         else:
             desired.normalize_ip()
             desired *= self.max_speed
-
+        
         steer = desired - self.velocity
         steer = self.limit(steer, self.max_accel)
         self.applyForce(steer)
@@ -137,21 +124,21 @@ class BaseAgent:
         if self.blackboard.get('is_stopped', False):
             self.velocity = pygame.Vector2(0, 0)
             self.acceleration = pygame.Vector2(0, 0)
-            return  # 정지 상태에서는 위치와 회전 변경 X
-        
+            return  # 정지 후 업데이트 종료
+    
         # Update velocity and position
         self.velocity += self.acceleration * sampling_time
         self.velocity = self.limit(self.velocity, self.max_speed)
         self.position += self.velocity * sampling_time
         self.acceleration *= 0  # Reset acceleration
 
-        # Calculate the distance moved in this update and add to distance_moved
+        # # Calculate the distance moved in this update and add to distance_moved
         self.distance_moved += self.velocity.length() * sampling_time
         # Memory of positions to draw track
         self.memory_location.append((self.position.x, self.position.y))
         if len(self.memory_location) > agent_track_size:
             self.memory_location.pop(0)
-        
+         
         # Update rotation
         desired_rotation = math.atan2(self.velocity.y, self.velocity.x)
         rotation_diff = desired_rotation - self.rotation

@@ -135,27 +135,22 @@ class Agent(BaseAgent):
 
     def update_discrete_position(self):
         """
-        에이전트의 위치를 기준으로 discrete_position을 설정한다.
-        - 노드에 정확히 위치하면 해당 노드를 discrete_position으로 설정
-        - 엣지에 위치한 경우 가장 가까운 노드를 선택하여 discrete_position 설정
+        에이전트의 위치를 가장 가까운 그리드 노드로 스냅(Snap)하여 discrete_position을 설정.
+        - 노드 간격의 절반보다 가까우면 해당 노드를 discrete_position으로 설정
         """
-        closest_node = None
-        min_distance = float('inf')
+        grid_size = self.grid_graph.grid_size  # 설정된 그리드 간격
 
-        for node in self.grid_graph.graph.nodes:
-            node_x, node_y = node
-            distance = math.sqrt((self.position.x - node_x) ** 2 + (self.position.y - node_y) ** 2)
+        # 현재 에이전트의 위치를 가장 가까운 그리드 노드로 조정
+        snapped_x = round(self.position.x / grid_size) * grid_size
+        snapped_y = round(self.position.y / grid_size) * grid_size
+        closest_node = (snapped_x, snapped_y)
 
-            # 특정 거리 이내이면 해당 노드로 간주
-            if distance < self.grid_graph.grid_size / 2:
-                if distance < min_distance:
-                    min_distance = distance
-                    closest_node = node
+        # 만약 가장 가까운 노드가 실제 그래프 노드 리스트에 없다면 조정
+        if closest_node not in self.grid_graph.graph.nodes:
+            closest_node = self.grid_graph.find_closest_grid_node(self.position)
 
-        if closest_node:
-            self.discrete_position = closest_node
-        else:
-            self.discrete_position = None  # 노드 근처가 아니면 None
+        # 업데이트된 discrete_position 설정
+        self.discrete_position = closest_node
 
         print(f"Agent {self.agent_id}: Discrete Position Updated -> {self.discrete_position}")
 

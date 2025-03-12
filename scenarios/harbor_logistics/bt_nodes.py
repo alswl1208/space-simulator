@@ -141,14 +141,12 @@ class IsArrivedAtChargingStation(SyncAction):
 class IsPathBlocked(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._check)
-        self.stop_threshold = 40
-        self.resume_threshold = 120
+        self.stop_threshold = 80
+        
+        self.resume_threshold = 160
         
     def _check(self, agent, blackboard):
-        """
-        노드 하나 차이일때 fail 반환
-        멀어지면 정지 해제
-        """
+
         if agent.discrete_position is None:
             return Status.SUCCESS
 
@@ -160,15 +158,15 @@ class IsPathBlocked(SyncAction):
             dist_y = abs(agent.discrete_position[1] - other_agent.discrete_position[1])
             node_distance = dist_x + dist_y
 
-            if node_distance == self.stop_threshold and not blackboard.get("is_stopped", False):
-                blackboard['request_new_path'] = True  # 내 에이전트 경로 재계획 요청
-                other_agent.blackboard['is_stopped'] = True  # 상대 에이전트 정지
-                print(f"[IsPathBlocked] 🚨 Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
-                return Status.FAILURE  # 경로 재계획을 트리거
+            if node_distance <= self.stop_threshold and not blackboard.get("is_stopped", False):
+                blackboard['request_new_path'] = True  
+                other_agent.blackboard['is_stopped'] = True  
+                print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
+                return Status.FAILURE  
 
             elif node_distance >= self.resume_threshold and other_agent.blackboard.get('is_stopped', False):
-                other_agent.blackboard['is_stopped'] = False  # 상대 에이전트 이동 재개
-                blackboard['is_stopped'] = False
+                other_agent.blackboard['is_stopped'] = False  
+                #blackboard['is_stopped'] = False
                 print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 멀어짐 → {other_agent.agent_id} 이동 재개")
 
         return Status.SUCCESS
@@ -234,6 +232,13 @@ class PlanPath(SyncAction):
         if goal_type is None:
             print(f"[PlanPath] Agent {agent.agent_id}: No goal type specified!")
             return Status.FAILURE
+        
+        agent.update_discrete_position()
+        start = agent.discrete_position  # discrete_position 사용
+
+        if start is None:
+            print(f"[PlanPath] Agent {agent.agent_id}: Invalid start position!")
+            return Status.FAILURE
 
         # # 이미 생성된 waypoints가 있으면 그대로 사용
         if 'waypoints' in blackboard and blackboard['waypoints'] is not None and not blackboard.get('request_new_path', False):
@@ -272,9 +277,13 @@ class PlanPath(SyncAction):
         else:
             print(f"[PlanPath] Agent {agent.agent_id}: Invalid goal type {goal_type}")
             return Status.FAILURE
+        
+        goal = agent.grid_graph.adjust_goal(goal)
 
-        # 현재 위치
-        start = agent.position
+        for other_agent in agent.env.agents:
+            if other_agent.discrete_position == goal and other_agent.blackboard.get('is_stopped', False) and other_agent.discrete_position == start:
+                print(f" [A*] Goal {goal} is occupied, releasing Agent {other_agent.agent_id}")
+                other_agent.blackboard['is_stopped'] = False
 
         if blackboard.get('request_new_path', False):
             print(f"[PlanPath] Agent {agent.agent_id}: 충돌 감지 → 대체 경로 탐색 시도!")
@@ -284,6 +293,7 @@ class PlanPath(SyncAction):
         
         if not waypoints:
             print(f"[PlanPath] Agent {agent.agent_id}: Failed to generate path!")
+            print(f"Agent {agent.agent_id}: start={start}, goal={goal}")
             return Status.FAILURE
 
         # 생성된 waypoints 저장
@@ -293,7 +303,7 @@ class PlanPath(SyncAction):
         self.next_waypoint_index = 0
         blackboard['status'] = None
         blackboard['request_new_path'] = False
-
+        print(f"Agent {agent.agent_id}: start={start}, goal={goal}")
         return Status.SUCCESS
 
 class GoToShip(SyncAction):
@@ -409,7 +419,22 @@ class WaypointFollower():
 
         #  기존 self.waypoints와 latest_waypoints가 다르면 업데이트
         if latest_waypoints is not None and latest_waypoints != self.waypoints:
-           #print(f"[WaypointFollower] Updating waypoints: {latest_waypoints}")
+           
+            if len(latest_waypoints) > 1:
+                wp0 = pygame.Vector2(latest_waypoints[0])
+                wp1 = pygame.Vector2(latest_waypoints[1])
+                agent_pos = pygame.Vector2(self.agent.position)
+
+                # 에이전트가 (wp0, wp1) 사이에 있는지 거리 검사
+                dist_total = wp0.distance_to(wp1)
+                dist_agent_wp0 = agent_pos.distance_to(wp0)
+                dist_agent_wp1 = agent_pos.distance_to(wp1)
+
+                if abs(dist_agent_wp0 + dist_agent_wp1 - dist_total) < 2:  # 거리가 비슷하면 선 위에 있음
+                    print(f" [WaypointFollower] Agent {agent_id}: Between {wp0} and {wp1}, skipping {wp0}")
+                    latest_waypoints.pop(0)  # 첫 번째 waypoint 제거
+                
+            #print(f"[WaypointFollower] Updating waypoints: {latest_waypoints}")
             self.waypoints = latest_waypoints
             self.agent.blackboard['next_waypoint_index'] = 0
             self.next_waypoint_index = 0

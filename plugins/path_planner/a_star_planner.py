@@ -27,10 +27,10 @@ class AStarPlanner:
         if isinstance(goal, tuple) is False:
             goal = (int(goal.x), int(goal.y))
 
-        if start not in graph.nodes:
-            start = min(graph.nodes, key=lambda node: (node[0] - start[0])**2 + (node[1] - start[1])**2)
-        if goal not in graph.nodes:
-            goal = min(graph.nodes, key=lambda node: (node[0] - goal[0])**2 + (node[1] - goal[1])**2)
+        # if start not in graph.nodes:
+        #     start = min(graph.nodes, key=lambda node: (node[0] - start[0])**2 + (node[1] - start[1])**2)
+        if goal not in self.grid_graph.grid_nodes:
+            goal = min(self.grid_graph.grid_nodes, key=lambda node: (node[0] - goal[0])**2 + (node[1] - goal[1])**2)
 
         avoid_nodes = set()
 
@@ -69,7 +69,7 @@ class AStarPlanner:
                 return path
 
             for neighbor in graph.neighbors(current):
-                if neighbor in avoid_nodes:  
+                if neighbor in avoid_nodes and neighbor != goal:  
                     continue
                 edge_weight = graph.get_edge_data(current, neighbor).get("weight", 1)  # 가중치 반영
                 tentative_g_score = g_score[current] + edge_weight
