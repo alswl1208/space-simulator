@@ -217,20 +217,20 @@ class IsPathBlocked(SyncAction):
                 blackboard['request_new_path'] = True  
                 other_agent.blackboard['is_stopped'] = True  
 
-                print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
+                #print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
                 return Status.FAILURE  
             
             if node_distance <= self.stop_threshold and common_nodes and not blackboard.get("is_stopped", False):
                 blackboard['request_new_path'] = True  
                 other_agent.blackboard['is_stopped'] = True  
 
-                print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
+                #print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
                 return Status.FAILURE  
 
             elif node_distance >= self.resume_threshold and other_agent.blackboard.get('is_stopped', False):
                 other_agent.blackboard['is_stopped'] = False  
                 #blackboard['is_stopped'] = False
-                print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 멀어짐 → {other_agent.agent_id} 이동 재개")
+                #print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 멀어짐 → {other_agent.agent_id} 이동 재개")
 
         return Status.SUCCESS
 
@@ -349,7 +349,7 @@ class PlanPath(SyncAction):
                 other_agent.blackboard['is_stopped'] = False
   
         if blackboard.get('request_new_path', False):
-            print(f"[PlanPath] Agent {agent.agent_id}: 충돌 감지 → 대체 경로 탐색 시도!")
+            #print(f"[PlanPath] Agent {agent.agent_id}: 충돌 감지 → 대체 경로 탐색 시도!")
             waypoints = self.path_planner.generate(start, goal, agent, avoid_previous=blackboard.get('request_new_path', False))
         else:
             waypoints = self.path_planner.generate(start, goal, agent)
@@ -361,12 +361,12 @@ class PlanPath(SyncAction):
 
         # 생성된 waypoints 저장
         blackboard['waypoints'] = waypoints
-        print(f"[PlanPath] Agent {agent.agent_id}: Planned path to {goal_type}: {waypoints}")
+        #print(f"[PlanPath] Agent {agent.agent_id}: Planned path to {goal_type}: {waypoints}")
         blackboard['next_waypoint_index'] = 0
         self.next_waypoint_index = 0
         blackboard['status'] = None
         blackboard['request_new_path'] = False
-        print(f"Agent {agent.agent_id}: start={start}, goal={goal}")
+        #print(f"Agent {agent.agent_id}: start={start}, goal={goal}")
         return Status.SUCCESS
 
 class GoToShip(SyncAction):
@@ -494,7 +494,7 @@ class WaypointFollower():
                 dist_agent_wp1 = agent_pos.distance_to(wp1)
 
                 if abs(dist_agent_wp0 + dist_agent_wp1 - dist_total) < 2:  # 거리가 비슷하면 선 위에 있음
-                    print(f" [WaypointFollower] Agent {agent_id}: Between {wp0} and {wp1}, skipping {wp0}")
+                    #print(f" [WaypointFollower] Agent {agent_id}: Between {wp0} and {wp1}, skipping {wp0}")
                     self.agent.blackboard['popped_waypoint'] = True
                     self.agent.blackboard['popped_waypoint_pos'] = (wp0.x, wp0.y)
                     latest_waypoints.pop(0)  # 첫 번째 waypoint 제거

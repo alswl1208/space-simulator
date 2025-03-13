@@ -63,7 +63,7 @@ class GridGraph:
         goal이 grid_nodes에 없으면 가장 가까운 grid node로 보정한다.
         """
         if goal not in self.grid_nodes:
-            print(f"[GridGraph] Goal {goal} is not in grid_nodes. Adjusting to closest node.")
+            #print(f"[GridGraph] Goal {goal} is not in grid_nodes. Adjusting to closest node.")
             goal = self.find_closest_grid_node(goal)
 
         return goal

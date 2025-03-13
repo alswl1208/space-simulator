@@ -152,7 +152,7 @@ class Agent(BaseAgent):
         # 업데이트된 discrete_position 설정
         self.discrete_position = closest_node
 
-        print(f"Agent {self.agent_id}: Discrete Position Updated -> {self.discrete_position}")
+        #print(f"Agent {self.agent_id}: Discrete Position Updated -> {self.discrete_position}")
 
     def draw(self, screen):
         if config['simulation']['rendering_options'].get('agent_path_visualization', True):
