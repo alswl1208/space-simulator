@@ -213,6 +213,13 @@ class IsPathBlocked(SyncAction):
             dist_y = abs(agent.discrete_position[1] - other_agent.discrete_position[1])
             node_distance = dist_x + dist_y
 
+            if node_distance <= self.stop_threshold and not blackboard.get("is_stopped", False) and blackboard.get("popped_waypoint", False):
+                blackboard['request_new_path'] = True  
+                other_agent.blackboard['is_stopped'] = True  
+
+                print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
+                return Status.FAILURE  
+            
             if node_distance <= self.stop_threshold and common_nodes and not blackboard.get("is_stopped", False):
                 blackboard['request_new_path'] = True  
                 other_agent.blackboard['is_stopped'] = True  
@@ -442,7 +449,7 @@ class GoToChargingStation(SyncAction):
 
 class WaypointFollower():
     def __init__(self, agent, target_arrive_threshold):
-        self.next_waypoint_index = 0  # Initialize the index for the next waypoint
+        self.next_waypoint_index = 0  
         self.waypoints = None
         self.remaining_waypoints = []
         self.agent = agent
@@ -488,8 +495,10 @@ class WaypointFollower():
 
                 if abs(dist_agent_wp0 + dist_agent_wp1 - dist_total) < 2:  # 거리가 비슷하면 선 위에 있음
                     print(f" [WaypointFollower] Agent {agent_id}: Between {wp0} and {wp1}, skipping {wp0}")
+                    self.agent.blackboard['popped_waypoint'] = True
+                    self.agent.blackboard['popped_waypoint_pos'] = (wp0.x, wp0.y)
                     latest_waypoints.pop(0)  # 첫 번째 waypoint 제거
-                
+                    
             #print(f"[WaypointFollower] Updating waypoints: {latest_waypoints}")
             self.waypoints = latest_waypoints
             self.agent.blackboard['next_waypoint_index'] = 0
@@ -505,6 +514,20 @@ class WaypointFollower():
                         self.agent.blackboard[remaining_waypoints_key] = latest_waypoints[:]
 
         agent_position = self.agent.position
+
+        if self.agent.blackboard.get('popped_waypoint', False):
+            prev_wp = self.agent.blackboard.get('popped_waypoint_pos', None)
+            
+            # 현재 waypoint의 첫 번째 좌표 가져오기
+            current_waypoints = self.agent.blackboard.get('waypoints', [])
+            if current_waypoints and self.agent.discrete_position:
+                first_wp = current_waypoints[0]  # waypoints의 첫 번째 좌표
+                
+                # discrete_position과 0번째 waypoint가 같으면 popped_waypoint 해제
+                if self.agent.discrete_position == first_wp:
+                    self.agent.blackboard['popped_waypoint'] = False
+                    self.agent.blackboard['popped_waypoint_pos'] = None
+                    
         next_waypoint = self.waypoints[self.next_waypoint_index]
 
         if agent_position == pygame.math.Vector2(next_waypoint):
