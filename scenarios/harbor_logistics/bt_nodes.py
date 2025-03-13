@@ -142,11 +142,60 @@ class IsPathBlocked(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._check)
         self.stop_threshold = 80
-        
-        self.resume_threshold = 160
-        
-    def _check(self, agent, blackboard):
 
+        self.resume_threshold = 160
+    
+    def get_full_path(self, agent, waypoints):
+         """
+         grid_size를 기반으로 waypoints 간 이동 방향을 보고 X → Y 또는 Y → X로 순서 결정
+         """
+         if waypoints is None:
+             return []
+         
+         full_path = []
+         grid_size = agent.env.config["grid"]["collision_check"]  
+ 
+         for i in range(len(waypoints) - 1):
+             x1, y1 = waypoints[i]
+             x2, y2 = waypoints[i + 1]
+ 
+             #  먼저 이동해야 할 방향 결정 (X → Y or Y → X)
+             if x1 == x2:  # X가 같으면 Y 방향 먼저 이동
+                 first_move = 'y'
+             elif y1 == y2:  # Y가 같으면 X 방향 먼저 이동
+                 first_move = 'x'
+             else:
+                 first_move = 'x' if abs(x2 - x1) > abs(y2 - y1) else 'y'  # 더 큰 변화량 먼저 이동
+ 
+             #  선택된 방향으로 먼저 보강
+             if first_move == 'x':  # X 먼저 이동
+                 step = grid_size if x2 > x1 else -grid_size
+                 for x in range(x1, x2 + step, step):
+                     full_path.append((x, y1))  # Y는 그대로
+ 
+                 step = grid_size if y2 > y1 else -grid_size  # 이후 Y 이동
+                 for y in range(y1, y2 + step, step):
+                     full_path.append((x2, y))  # 최종 X 유지
+ 
+             else:  # Y 먼저 이동
+                 step = grid_size if y2 > y1 else -grid_size
+                 for y in range(y1, y2 + step, step):
+                     full_path.append((x1, y))  # X는 그대로
+ 
+                 step = grid_size if x2 > x1 else -grid_size  # 이후 X 이동
+                 for x in range(x1, x2 + step, step):
+                     full_path.append((x, y2))  # 최종 Y 유지
+ 
+         full_path = list(dict.fromkeys(full_path))  # 중복 제거 (순서 유지)
+         #print(f"[get_full_path] Agent {agent.agent_id}: 보강된 waypoints = {full_path}")
+         return full_path
+    
+    def _check(self, agent, blackboard):
+        
+        current_path = self.get_full_path(agent, blackboard.get('waypoints', []))
+        if not current_path:
+            return Status.SUCCESS
+        
         if agent.discrete_position is None:
             return Status.SUCCESS
 
@@ -154,13 +203,20 @@ class IsPathBlocked(SyncAction):
             if other_agent == agent or other_agent.discrete_position is None:
                 continue
             
+            other_path = self.get_full_path(other_agent, other_agent.blackboard.get('waypoints', []))
+            if not other_path:
+                continue
+            
+            common_nodes = set(current_path) & set(other_path)
+
             dist_x = abs(agent.discrete_position[0] - other_agent.discrete_position[0])
             dist_y = abs(agent.discrete_position[1] - other_agent.discrete_position[1])
             node_distance = dist_x + dist_y
 
-            if node_distance <= self.stop_threshold and not blackboard.get("is_stopped", False):
+            if node_distance <= self.stop_threshold and common_nodes and not blackboard.get("is_stopped", False):
                 blackboard['request_new_path'] = True  
                 other_agent.blackboard['is_stopped'] = True  
+
                 print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
                 return Status.FAILURE  
 
@@ -284,7 +340,7 @@ class PlanPath(SyncAction):
             if other_agent.discrete_position == goal and other_agent.blackboard.get('is_stopped', False) and other_agent.discrete_position == start:
                 print(f" [A*] Goal {goal} is occupied, releasing Agent {other_agent.agent_id}")
                 other_agent.blackboard['is_stopped'] = False
-
+  
         if blackboard.get('request_new_path', False):
             print(f"[PlanPath] Agent {agent.agent_id}: 충돌 감지 → 대체 경로 탐색 시도!")
             waypoints = self.path_planner.generate(start, goal, agent, avoid_previous=blackboard.get('request_new_path', False))
