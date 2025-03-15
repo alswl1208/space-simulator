@@ -143,7 +143,7 @@ class IsPathBlocked(SyncAction):
         super().__init__(name, self._check)
         self.stop_threshold = 80
 
-        self.resume_threshold = 160
+        self.resume_threshold = 120
     
     def get_full_path(self, agent, waypoints):
          """
@@ -192,6 +192,9 @@ class IsPathBlocked(SyncAction):
     
     def _check(self, agent, blackboard):
         
+        if "is_stopped_by" not in blackboard:
+            blackboard["is_stopped_by"] = set()
+
         current_path = self.get_full_path(agent, blackboard.get('waypoints', []))
         if not current_path:
             return Status.SUCCESS
@@ -215,21 +218,40 @@ class IsPathBlocked(SyncAction):
 
             if node_distance <= self.stop_threshold and not blackboard.get("is_stopped", False) and blackboard.get("popped_waypoint", False):
                 blackboard['request_new_path'] = True  
-                other_agent.blackboard['is_stopped'] = True  
-
-                #print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
+                other_agent.blackboard['is_stopped'] = True
+                #other_agent.blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id)) 
+                blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+                print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
                 return Status.FAILURE  
             
             if node_distance <= self.stop_threshold and common_nodes and not blackboard.get("is_stopped", False):
                 blackboard['request_new_path'] = True  
                 other_agent.blackboard['is_stopped'] = True  
-
-                #print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
+                #other_agent.blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+                blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+                print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
                 return Status.FAILURE  
 
-            elif node_distance >= self.resume_threshold and other_agent.blackboard.get('is_stopped', False):
-                other_agent.blackboard['is_stopped'] = False  
-                #blackboard['is_stopped'] = False
+            if other_agent.blackboard.get('is_stopped', False) and blackboard["is_stopped_by"]:
+                to_remove = set()
+                for (agent_id, other_id) in blackboard["is_stopped_by"]:
+                    if agent.agent_id == agent_id:
+                        stopping_agent = agent
+                        stopped_agent = next((a for a in agent.env.agents if a.agent_id == other_id), None)
+                    elif agent.agent_id == other_id:
+                        stopping_agent = next((a for a in agent.env.agents if a.agent_id == agent_id), None)
+                        stopped_agent = agent
+                    else:
+                        continue
+                    if stopping_agent and stopped_agent:
+                        if node_distance >= self.resume_threshold:
+                            to_remove.add((agent_id, other_id))
+                
+                for stop_pair in to_remove:
+                    if stop_pair in blackboard["is_stopped_by"]:
+                        blackboard["is_stopped_by"].remove(stop_pair)
+                        stopped_agent.blackboard['is_stopped'] = False
+                        
                 #print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 멀어짐 → {other_agent.agent_id} 이동 재개")
 
         return Status.SUCCESS
@@ -343,10 +365,10 @@ class PlanPath(SyncAction):
         
         goal = agent.grid_graph.adjust_goal(goal)
 
-        for other_agent in agent.env.agents:
-            if other_agent.discrete_position == goal and other_agent.blackboard.get('is_stopped', False) and other_agent.discrete_position == start:
-                print(f" [A*] Goal {goal} is occupied, releasing Agent {other_agent.agent_id}")
-                other_agent.blackboard['is_stopped'] = False
+        # for other_agent in agent.env.agents:
+        #     if other_agent.discrete_position == goal and other_agent.blackboard.get('is_stopped', False) and other_agent.discrete_position == start:
+        #         print(f" [A*] Goal {goal} is occupied, releasing Agent {other_agent.agent_id}")
+        #         other_agent.blackboard['is_stopped'] = False
   
         if blackboard.get('request_new_path', False):
             #print(f"[PlanPath] Agent {agent.agent_id}: 충돌 감지 → 대체 경로 탐색 시도!")
