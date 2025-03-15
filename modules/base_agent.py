@@ -91,13 +91,6 @@ class BaseAgent:
 
     def follow(self, target):
         
-        # 만약 현재 에이전트가 정지 상태라면 아무것도 하지 않음
-        if self.blackboard.get('is_stopped', False):
-            self.velocity = pygame.Vector2(0, 0)
-            #self.acceleration = pygame.Vector2(0, 0)
-            print(f" [Agent {self.agent_id}] 정지 상태 유지 중")
-            return  #  계속 정지 상태 유지
-        
         # Calculate desired velocity
         desired = target - self.position
         d = desired.length()
@@ -120,38 +113,38 @@ class BaseAgent:
     def update(self):
         
         self.update_discrete_position()
+        desired_rotation = self.rotation  
 
+        if self.velocity.length() > 0.05:
+            desired_rotation = math.atan2(self.velocity.y, self.velocity.x)
+            rotation_diff = desired_rotation - self.rotation
+            while rotation_diff > math.pi:
+                rotation_diff -= 2 * math.pi
+            while rotation_diff < -math.pi:
+                rotation_diff += 2 * math.pi
+        else:
+            rotation_diff = 0  
         if self.blackboard.get('is_stopped', False):
-            self.velocity = pygame.Vector2(0, 0)
-            self.acceleration = pygame.Vector2(0, 0)
-            return  # 정지 후 업데이트 종료
-    
-        # Update velocity and position
+            if abs(rotation_diff) > 0.25: 
+                if abs(rotation_diff) > self.max_angular_speed:
+                    rotation_diff = math.copysign(self.max_angular_speed, rotation_diff)
+                self.rotation += rotation_diff * sampling_time
+            else:
+                if abs(rotation_diff) < 0.23:  
+                    self.rotation = desired_rotation  
+                self.velocity = pygame.Vector2(0, 0) 
+                self.acceleration = pygame.Vector2(0, 0) 
+                return  
+
         self.velocity += self.acceleration * sampling_time
         self.velocity = self.limit(self.velocity, self.max_speed)
         self.position += self.velocity * sampling_time
-        self.acceleration *= 0  # Reset acceleration
+        self.acceleration *= 0
 
-        # # Calculate the distance moved in this update and add to distance_moved
-        self.distance_moved += self.velocity.length() * sampling_time
-        # Memory of positions to draw track
-        self.memory_location.append((self.position.x, self.position.y))
-        if len(self.memory_location) > agent_track_size:
-            self.memory_location.pop(0)
-         
-        # Update rotation
-        desired_rotation = math.atan2(self.velocity.y, self.velocity.x)
-        rotation_diff = desired_rotation - self.rotation
-        while rotation_diff > math.pi:
-            rotation_diff -= 2 * math.pi
-        while rotation_diff < -math.pi:
-            rotation_diff += 2 * math.pi
-
-        # Limit angular velocity
         if abs(rotation_diff) > self.max_angular_speed:
             rotation_diff = math.copysign(self.max_angular_speed, rotation_diff)
 
-        self.rotation += rotation_diff * sampling_time
+        self.rotation += rotation_diff * sampling_time  
 
     def reset_movement(self):
         self.velocity = pygame.Vector2(0, 0)
