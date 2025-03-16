@@ -132,10 +132,10 @@ class BaseAgent:
             else:
                 if abs(rotation_diff) < 0.23:  
                     self.rotation = desired_rotation  
-                self.velocity = pygame.Vector2(0, 0) 
-                self.acceleration = pygame.Vector2(0, 0) 
+                    self.velocity = pygame.Vector2(0, 0) 
+                    self.acceleration = pygame.Vector2(0, 0) 
                 return  
-
+        
         self.velocity += self.acceleration * sampling_time
         self.velocity = self.limit(self.velocity, self.max_speed)
         self.position += self.velocity * sampling_time
