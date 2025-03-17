@@ -130,14 +130,16 @@ class BaseAgent:
                     rotation_diff = math.copysign(self.max_angular_speed, rotation_diff)
                 self.rotation += rotation_diff * sampling_time
             else:
-                if abs(rotation_diff) < 0.23:  
-                    self.rotation = desired_rotation  
-                    self.velocity = pygame.Vector2(0, 0) 
-                    self.acceleration = pygame.Vector2(0, 0) 
+                #if abs(rotation_diff) < 0.23:  
+                self.rotation = desired_rotation  
+                self.velocity = pygame.Vector2(0, 0) 
+                self.acceleration = pygame.Vector2(0, 0) 
                 return  
         
         self.velocity += self.acceleration * sampling_time
         self.velocity = self.limit(self.velocity, self.max_speed)
+        if self.velocity.length() < 0.01:
+            self.velocity = pygame.Vector2(0, 0)
         self.position += self.velocity * sampling_time
         self.acceleration *= 0
 
