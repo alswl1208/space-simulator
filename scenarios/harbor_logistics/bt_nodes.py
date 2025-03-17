@@ -402,6 +402,7 @@ class PlanPath(SyncAction):
         if not waypoints:
             print(f"[PlanPath] Agent {agent.agent_id}: Failed to generate path!")
             print(f"Agent {agent.agent_id}: start={start}, goal={goal}")
+            agent.blackboard['is_stopped'] = True
             return Status.FAILURE
 
         # 생성된 waypoints 저장
