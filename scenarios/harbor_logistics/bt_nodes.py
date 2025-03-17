@@ -142,7 +142,7 @@ class IsPathBlocked(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._check)
         self.stop_threshold = 80
-
+        #self.bottleneck_threshold = 160
         self.resume_threshold = 120
     
     def get_full_path(self, agent, waypoints):
@@ -201,11 +201,15 @@ class IsPathBlocked(SyncAction):
         
         if agent.discrete_position is None:
             return Status.SUCCESS
+        
+        goal = current_path[-1] if current_path else None
 
         for other_agent in agent.env.agents:
             if other_agent == agent or other_agent.discrete_position is None:
                 continue
             
+            other_pos = other_agent.discrete_position
+
             other_path = self.get_full_path(other_agent, other_agent.blackboard.get('waypoints', []))
             if not other_path:
                 continue
@@ -216,6 +220,16 @@ class IsPathBlocked(SyncAction):
             dist_y = abs(agent.discrete_position[1] - other_agent.discrete_position[1])
             node_distance = dist_x + dist_y
 
+            if goal and goal == other_pos and node_distance <= self.stop_threshold:
+                if not agent.blackboard.get("is_stopped", False):
+                    agent.blackboard['is_stopped'] = True  # 내 에이전트 정지
+                    blackboard["is_stopped_by"] = set()
+                    blackboard["is_stopped_by"].add((other_agent.agent_id, agent.agent_id))
+                    print(f"[IsPathBlocked] Agent {agent.agent_id} stopped because goal {goal} is occupied by Agent {other_agent.agent_id}")
+
+                other_agent.blackboard['is_stopped'] = False
+                return Status.FAILURE
+            
             if node_distance <= self.stop_threshold and not blackboard.get("is_stopped", False) and blackboard.get("popped_waypoint", False):
                 blackboard['request_new_path'] = True  
                 other_agent.blackboard['is_stopped'] = True
@@ -232,7 +246,7 @@ class IsPathBlocked(SyncAction):
                 print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
                 return Status.FAILURE  
 
-            if other_agent.blackboard.get('is_stopped', False) and blackboard["is_stopped_by"]:
+            if not other_agent.blackboard.get('is_stopped', False) and blackboard["is_stopped_by"]:
                 to_remove = set()
                 for (agent_id, other_id) in blackboard["is_stopped_by"]:
                     if agent.agent_id == agent_id:
@@ -244,13 +258,22 @@ class IsPathBlocked(SyncAction):
                     else:
                         continue
                     if stopping_agent and stopped_agent:
-                        if node_distance >= self.resume_threshold:
+                        stopping_pos = stopping_agent.discrete_position
+                        stopped_pos = stopped_agent.discrete_position
+
+                        if stopping_pos and stopped_pos:
+                            dist_x = abs(stopping_pos[0] - stopped_pos[0])
+                            dist_y = abs(stopping_pos[1] - stopped_pos[1])
+                            resume_distance = dist_x + dist_y
+                            
+                        if resume_distance >= self.resume_threshold:
                             to_remove.add((agent_id, other_id))
                 
                 for stop_pair in to_remove:
                     if stop_pair in blackboard["is_stopped_by"]:
                         blackboard["is_stopped_by"].remove(stop_pair)
                         stopped_agent.blackboard['is_stopped'] = False
+                        #stopping_agent.blackboard['is_stopped'] = False
                         
                 #print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 멀어짐 → {other_agent.agent_id} 이동 재개")
 
