@@ -330,7 +330,8 @@ class PlanPath(SyncAction):
         super().__init__(name, self._plan)
         planner_name = config['planner']['algorithm']
         self.path_planner = planner_manager.get_planner(planner_name, agent)
-
+        self.no_waypoint_agents = set()
+        
     def _plan(self, agent, blackboard):
         
         # goal_type을 BT XML에서 입력값으로 가져옴
@@ -403,7 +404,12 @@ class PlanPath(SyncAction):
             print(f"[PlanPath] Agent {agent.agent_id}: Failed to generate path!")
             print(f"Agent {agent.agent_id}: start={start}, goal={goal}")
             agent.blackboard['is_stopped'] = True
+            self.no_waypoint_agents.add(agent)
             return Status.FAILURE
+
+        if agent in self.no_waypoint_agents:
+            self.no_waypoint_agents.remove(agent) 
+            agent.blackboard['is_stopped'] = False
 
         # 생성된 waypoints 저장
         blackboard['waypoints'] = waypoints
