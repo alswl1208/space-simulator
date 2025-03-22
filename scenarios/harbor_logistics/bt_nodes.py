@@ -17,7 +17,8 @@ CUSTOM_ACTION_NODES = [
     'DecideShip',
     'GoToChargingStation',
     'ChargeBattery',
-    'PlanPath'
+    'PlanPath',
+    'ControlGroupFlow'
 ]
 
 CUSTOM_CONDITION_NODES = [
@@ -451,6 +452,60 @@ class PlanPath(SyncAction):
         blackboard['status'] = None
         blackboard['request_new_path'] = False
         #print(f"Agent {agent.agent_id}: start={start}, goal={goal}")
+        return Status.SUCCESS
+
+class ControlGroupFlow(SyncAction):
+    def __init__(self, name, agent):
+        super().__init__(name, self._control_flow)
+        self.group_count = config['simulation']['group_count']
+        self.color_map = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
+
+    def get_full_path(self, waypoints, grid_size=10):
+        if not waypoints:
+            return []
+        full_path = []
+        for i in range(len(waypoints) - 1):
+            x1, y1 = waypoints[i]
+            x2, y2 = waypoints[i + 1]
+            if x1 != x2:
+                step = grid_size if x2 > x1 else -grid_size
+                for x in range(x1, x2 + step, step):
+                    full_path.append((x, y1))
+            if y1 != y2:
+                step = grid_size if y2 > y1 else -grid_size
+                for y in range(y1, y2 + step, step):
+                    full_path.append((x2, y))
+        return list(dict.fromkeys(full_path))
+
+    def _control_flow(self, agent, blackboard):
+        env = agent.env
+        candidates = [
+            a for a in env.agents
+            if a.blackboard.get('goal_type') == 'ship' and a.blackboard.get('waypoints') is not None
+        ]
+
+        agent_paths = []
+        for a in candidates:
+            full_path = self.get_full_path(a.blackboard['waypoints'])
+            agent_paths.append((a, len(full_path), full_path))
+
+        agent_paths.sort(key=lambda x: x[1]) 
+
+        total = len(agent_paths)
+        base_size = total // self.group_count
+        remainder = total % self.group_count
+
+        start = 0
+        for group_id in range(self.group_count):
+            size = base_size + (1 if group_id == self.group_count - 1 and remainder > 0 else 0)
+            for i in range(start, start + size):
+                a, _, _ = agent_paths[i]
+                a.blackboard['group_id'] = group_id
+                if hasattr(a, "set_color"):
+                    a.set_color(self.color_map[group_id % len(self.color_map)])
+                print(f"[ControlGroupFlow] Agent {a.agent_id} → Group {group_id}")
+            start += size
+
         return Status.SUCCESS
 
 class GoToShip(SyncAction):

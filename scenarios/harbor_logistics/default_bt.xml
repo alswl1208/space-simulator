@@ -35,11 +35,12 @@
                     <DecideShip/>
                     <Fallback>
                       <Sequence>
-                        <IsFlowStable/>
-                        <Sequence>
-                          <PlanPath goal_type="ship"/>
-                          <IsPathBlocked/>
-                        </Sequence>
+                        <PlanPath goal_type="ship"/>
+                        <Fallback>
+                          <IsFlowStable/>
+                          <ControlGroupFlow/>
+                        </Fallback>
+                        <IsPathBlocked/>
                       </Sequence>
                       <PlanPath goal_type="ship"/>
                     </Fallback>
@@ -100,6 +101,8 @@
     <Action ID="PickItem"
             editable="true"/>
     <Action ID="PlaceItem"
+            editable="true"/>
+    <Action ID="ControlGroupFlow"
             editable="true"/>
     <Condition ID="IsBatterySufficient"
                editable="true"/>
