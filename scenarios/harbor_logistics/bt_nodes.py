@@ -27,7 +27,8 @@ CUSTOM_CONDITION_NODES = [
     'IsArrivedAtDestination',
     'IsArrivedAtChargingStation',
     'IsBatterySufficient',
-    'IsPathBlocked'
+    'IsPathBlocked',
+    'IsFlowStable'
 ]
 
 BTNodeList.ACTION_NODES.extend(CUSTOM_ACTION_NODES)
@@ -137,6 +138,37 @@ class IsArrivedAtChargingStation(SyncAction):
         else:
             blackboard['goal_type'] = 'charging_station'
             return Status.FAILURE
+
+class IsFlowStable(SyncAction):
+    def __init__(self, name, agent, threshold=2):
+        super().__init__(name, self._check)
+        self.threshold = threshold
+
+    def _check(self, agent, blackboard):
+        stopped_positions = [
+            a.discrete_position
+            for a in agent.env.agents
+            if a.blackboard.get("is_stopped", False) and a.discrete_position is not None
+        ]
+
+        if not stopped_positions:
+            return Status.SUCCESS
+
+        G = agent.grid_graph.graph
+        subgraph = G.subgraph(stopped_positions)
+
+        connected_components = list(nx.connected_components(subgraph))
+
+        for comp in connected_components:
+            if len(comp) >= self.threshold:
+                involved_ids = [
+                    a.agent_id for a in agent.env.agents
+                    if a.discrete_position in comp and a.blackboard.get("is_stopped", False)
+                ]
+                print(f"[IsFlowStable] 병목 발생: 연결된 정지 agent 수 = {len(comp)} → FAILURE")
+                print(f"[IsFlowStable] 병목 에이전트 ID: {involved_ids}")
+                return Status.FAILURE
+        return Status.SUCCESS
 
 class IsPathBlocked(SyncAction):
     def __init__(self, name, agent):

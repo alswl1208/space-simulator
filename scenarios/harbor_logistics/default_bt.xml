@@ -35,8 +35,11 @@
                     <DecideShip/>
                     <Fallback>
                       <Sequence>
-                        <PlanPath goal_type="ship"/>
-                        <IsPathBlocked/>
+                        <IsFlowStable/>
+                        <Sequence>
+                          <PlanPath goal_type="ship"/>
+                          <IsPathBlocked/>
+                        </Sequence>
                       </Sequence>
                       <PlanPath goal_type="ship"/>
                     </Fallback>
@@ -89,6 +92,8 @@
     <Condition ID="IsHoldingItem"
                editable="true"/>
     <Condition ID="IsPathBlocked"
+               editable="true"/>
+    <Condition ID="IsFlowStable"
                editable="true"/>
     <Action ID="LocalSensingNode"
             editable="true"/>
