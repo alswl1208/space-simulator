@@ -124,7 +124,7 @@ class BaseAgent:
                 rotation_diff += 2 * math.pi
         else:
             rotation_diff = 0  
-        if self.blackboard.get('is_stopped', False):
+        if self.blackboard.get('is_stopped', False) or self.blackboard.get('is_waiting_for_turn', False):
             if abs(rotation_diff) > 0.25: 
                 if abs(rotation_diff) > self.max_angular_speed:
                     rotation_diff = math.copysign(self.max_angular_speed, rotation_diff)

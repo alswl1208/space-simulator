@@ -29,7 +29,8 @@ CUSTOM_CONDITION_NODES = [
     'IsArrivedAtChargingStation',
     'IsBatterySufficient',
     'IsPathBlocked',
-    'IsFlowStable'
+    'IsFlowStable',
+    'IsMyTurnToGo'
 ]
 
 BTNodeList.ACTION_NODES.extend(CUSTOM_ACTION_NODES)
@@ -146,6 +147,10 @@ class IsFlowStable(SyncAction):
         self.threshold = threshold
 
     def _check(self, agent, blackboard):
+        
+        # if blackboard.get("group_created", False):
+        #     return Status.SUCCESS
+        
         stopped_positions = [
             a.discrete_position
             for a in agent.env.agents
@@ -171,6 +176,27 @@ class IsFlowStable(SyncAction):
                 return Status.FAILURE
         return Status.SUCCESS
 
+class IsMyTurnToGo(SyncAction):
+    def __init__(self, name, agent):
+        super().__init__(name, self._check)
+
+    def _check(self, agent, blackboard):
+        env = agent.env
+        
+        my_group = blackboard.get('group_id', None)
+        current_group = getattr(env, 'current_group_id', 0)
+
+        if my_group is None:
+            print(f"[IsMyTurnToGo] Agent {agent.agent_id}: 그룹 정보 없음 → SUCCESS")
+            return Status.SUCCESS
+        
+        if my_group == current_group:
+            blackboard['is_waiting_for_turn'] = False
+            return Status.SUCCESS
+        else:
+            blackboard['is_waiting_for_turn'] = True
+            return Status.FAILURE
+        
 class IsPathBlocked(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._check)
@@ -478,18 +504,26 @@ class ControlGroupFlow(SyncAction):
         return list(dict.fromkeys(full_path))
 
     def _control_flow(self, agent, blackboard):
+
+        if blackboard.get("group_created", False):
+            return Status.SUCCESS
+        
         env = agent.env
         candidates = [
             a for a in env.agents
-            if a.blackboard.get('goal_type') == 'ship' and a.blackboard.get('waypoints') is not None
+            if not a.blackboard.get('group_created', False) and a.blackboard.get('goal_type') == 'ship' and a.blackboard.get('waypoints') is not None
         ]
 
+        if len(candidates) < self.group_count:
+            print("[ControlGroupFlow] 유효한 후보 agent 수가 부족함 → SKIP")
+            return Status.FAILURE
+    
         agent_paths = []
         for a in candidates:
             full_path = self.get_full_path(a.blackboard['waypoints'])
             agent_paths.append((a, len(full_path), full_path))
 
-        agent_paths.sort(key=lambda x: x[1]) 
+        agent_paths.sort(key=lambda x: (x[1], x[0].agent_id))
 
         total = len(agent_paths)
         base_size = total // self.group_count
@@ -497,10 +531,11 @@ class ControlGroupFlow(SyncAction):
 
         start = 0
         for group_id in range(self.group_count):
-            size = base_size + (1 if group_id == self.group_count - 1 and remainder > 0 else 0)
+            size = base_size + (1 if group_id < remainder else 0)
             for i in range(start, start + size):
                 a, _, _ = agent_paths[i]
                 a.blackboard['group_id'] = group_id
+                a.blackboard['group_created'] = True
                 if hasattr(a, "set_color"):
                     a.set_color(self.color_map[group_id % len(self.color_map)])
                 print(f"[ControlGroupFlow] Agent {a.agent_id} → Group {group_id}")
@@ -608,7 +643,7 @@ class WaypointFollower():
         self.agent.blackboard['next_waypoint_index'] = 0
 
     def move(self):
-        
+
         #  최신 waypoints 가져오기
         latest_waypoints = self.agent.blackboard.get('waypoints', None)
         agent_id = self.agent.agent_id

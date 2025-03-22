@@ -36,11 +36,14 @@
                     <Fallback>
                       <Sequence>
                         <PlanPath goal_type="ship"/>
+                        <IsPathBlocked/>
                         <Fallback>
                           <IsFlowStable/>
-                          <ControlGroupFlow/>
+                          <Sequence>
+                            <ControlGroupFlow/>
+                            <IsMyTurnToGo/>
+                          </Sequence>
                         </Fallback>
-                        <IsPathBlocked/>
                       </Sequence>
                       <PlanPath goal_type="ship"/>
                     </Fallback>
@@ -95,6 +98,8 @@
     <Condition ID="IsPathBlocked"
                editable="true"/>
     <Condition ID="IsFlowStable"
+               editable="true"/>
+    <Condition ID="IsMyTurnToGo"
                editable="true"/>
     <Action ID="LocalSensingNode"
             editable="true"/>
