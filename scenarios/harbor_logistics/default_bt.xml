@@ -36,7 +36,6 @@
                     <Fallback>
                       <Sequence>
                         <PlanPath goal_type="ship"/>
-                        <IsPathBlocked/>
                         <Fallback>
                           <IsFlowStable/>
                           <Sequence>
@@ -46,6 +45,7 @@
                         </Fallback>
                       </Sequence>
                       <PlanPath goal_type="ship"/>
+                      <IsPathBlocked/>
                     </Fallback>
                     <GoToShip/>
                   </Sequence>

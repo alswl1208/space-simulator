@@ -171,6 +171,22 @@ class Agent(BaseAgent):
             text_rect.topleft = (self.position.x + 30, self.position.y - 20)  # 에이전트 옆에 표시
             screen.blit(text_surface, text_rect)
 
+        if self.blackboard.get("group_created", False) and self.blackboard.get("is_turn_checked", False):
+            is_waiting = self.blackboard.get("is_waiting_for_turn", False)
+            
+            if is_waiting:
+                color = (150, 150, 150)  # 회색
+            else:
+                color = (0, 255, 0)      # 연두색 (현재 그룹)
+
+            pygame.draw.circle(
+                screen,
+                color,
+                (int(self.position.x), int(self.position.y)),
+                30,
+                3
+            )
+
 def generate_agents(tasks_info, env):
     agent_quantity = config['agents']['quantity']
     

@@ -148,9 +148,6 @@ class IsFlowStable(SyncAction):
 
     def _check(self, agent, blackboard):
         
-        # if blackboard.get("group_created", False):
-        #     return Status.SUCCESS
-        
         stopped_positions = [
             a.discrete_position
             for a in agent.env.agents
@@ -192,9 +189,11 @@ class IsMyTurnToGo(SyncAction):
         
         if my_group == current_group:
             blackboard['is_waiting_for_turn'] = False
+            blackboard['is_turn_checked'] = True
             return Status.SUCCESS
         else:
             blackboard['is_waiting_for_turn'] = True
+            blackboard['is_turn_checked'] = True
             return Status.FAILURE
         
 class IsPathBlocked(SyncAction):
