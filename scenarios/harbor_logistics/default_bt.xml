@@ -43,9 +43,9 @@
                             <IsMyTurnToGo/>
                           </Sequence>
                         </Fallback>
+                        <IsPathBlocked/>
                       </Sequence>
                       <PlanPath goal_type="ship"/>
-                      <IsPathBlocked/>
                     </Fallback>
                     <GoToShip/>
                   </Sequence>
