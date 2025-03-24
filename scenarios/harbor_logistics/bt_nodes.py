@@ -30,7 +30,8 @@ CUSTOM_CONDITION_NODES = [
     'IsBatterySufficient',
     'IsPathBlocked',
     'IsFlowStable',
-    'IsMyTurnToGo'
+    'IsMyTurnToGo',
+    'IsGroupInBottleneck'
 ]
 
 BTNodeList.ACTION_NODES.extend(CUSTOM_ACTION_NODES)
@@ -195,7 +196,45 @@ class IsMyTurnToGo(SyncAction):
             blackboard['is_waiting_for_turn'] = True
             blackboard['is_turn_checked'] = True
             return Status.FAILURE
-        
+
+class IsGroupInBottleneck(SyncAction):
+    def __init__(self, name, agent, threshold=2):
+        super().__init__(name, self._check)
+        self.threshold = threshold
+
+    def _check(self, agent, blackboard):
+        env = agent.env
+        current_group_id = getattr(env, "current_group_id", 0)
+
+        stopped_positions = [
+            a.discrete_position
+            for a in env.agents
+            if a.blackboard.get("is_stopped", False)
+            and a.blackboard.get("group_id") == current_group_id
+            and a.discrete_position is not None
+        ]
+
+        if not stopped_positions:
+            return Status.FAILURE 
+
+        G = agent.grid_graph.graph
+        subgraph = G.subgraph(stopped_positions)
+        connected_components = list(nx.connected_components(subgraph))
+
+        for comp in connected_components:
+            if len(comp) >= self.threshold:
+                involved_ids = [
+                    a.agent_id for a in env.agents
+                    if a.discrete_position in comp
+                    and a.blackboard.get("group_id") == current_group_id
+                    and a.blackboard.get("is_stopped", False)
+                ]
+                print(f"[IsGroupInBottleneck] 병목 감지: 연결된 정지 agent 수 = {len(comp)} → SUCCESS")
+                print(f"[IsGroupInBottleneck] 병목 에이전트 ID: {involved_ids}")
+                return Status.SUCCESS 
+
+        return Status.FAILURE  
+    
 class IsPathBlocked(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._check)

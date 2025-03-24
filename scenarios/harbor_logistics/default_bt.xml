@@ -41,6 +41,9 @@
                           <Sequence>
                             <ControlGroupFlow/>
                             <IsMyTurnToGo/>
+                            <Fallback>
+                              <IsGroupInBottleneck/> 
+                            </Fallback>
                           </Sequence>
                         </Fallback>
                         <IsPathBlocked/>
@@ -101,6 +104,8 @@
                editable="true"/>
     <Condition ID="IsMyTurnToGo"
                editable="true"/>
+    <Condition ID="IsGroupInBottleneck"
+           editable="true"/>
     <Action ID="LocalSensingNode"
             editable="true"/>
     <Action ID="PickItem"
