@@ -33,6 +33,9 @@ class Env(BaseEnv):
         # Initialize data recording
         self.data_records = []
 
+        # Group
+        self.current_group_id = 0
+
     def set_background(self):
         assets_path = 'scenarios/harbor_logistics/assets'                
         # Load the background image

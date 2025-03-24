@@ -43,6 +43,7 @@
                             <IsMyTurnToGo/>
                             <Fallback>
                               <IsGroupInBottleneck/> 
+                              <UpdateGroup/>
                             </Fallback>
                           </Sequence>
                         </Fallback>
@@ -113,6 +114,8 @@
     <Action ID="PlaceItem"
             editable="true"/>
     <Action ID="ControlGroupFlow"
+            editable="true"/>
+    <Action ID="UpdateGroup"
             editable="true"/>
     <Condition ID="IsBatterySufficient"
                editable="true"/>

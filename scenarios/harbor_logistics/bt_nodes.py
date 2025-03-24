@@ -18,7 +18,8 @@ CUSTOM_ACTION_NODES = [
     'GoToChargingStation',
     'ChargeBattery',
     'PlanPath',
-    'ControlGroupFlow'
+    'ControlGroupFlow',
+    'UpdateGroup'
 ]
 
 CUSTOM_CONDITION_NODES = [
@@ -581,6 +582,26 @@ class ControlGroupFlow(SyncAction):
 
         return Status.SUCCESS
 
+class UpdateGroup(SyncAction):
+    def __init__(self, name, agent):
+        super().__init__(name, self._update_group)
+
+    def _update_group(self, agent, blackboard):
+        env = agent.env
+
+        max_group_id = max(
+            (a.blackboard.get("group_id", -1) for a in env.agents),
+            default=0
+        )
+
+        if env.current_group_id < max_group_id:
+            env.current_group_id += 1
+            print(f"[UpdateGroup] 그룹을 {env.current_group_id}로 업데이트")
+            return Status.SUCCESS
+        else:
+            print("[UpdateGroup] 더 이상 업데이트할 그룹이 없음")
+            return Status.FAILURE
+        
 class GoToShip(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._move)
