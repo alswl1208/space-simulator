@@ -40,10 +40,8 @@
                           <IsFlowStable/>
                           <Sequence>
                             <ControlGroupFlow/>
-                            <IsMyTurnToGo/>
                             <Fallback>
-                              <IsGroupInBottleneck/> 
-                              <UpdateGroup/>
+                              <IsNotMyTurn/>
                             </Fallback>
                           </Sequence>
                         </Fallback>
@@ -52,6 +50,10 @@
                       <PlanPath goal_type="ship"/>
                     </Fallback>
                     <GoToShip/>
+                    <Fallback>
+                      <IsGroupInBottleneck/> 
+                      <UpdateGroup/>
+                    </Fallback>
                   </Sequence>
                 </Fallback>
                 <PickItem/>
@@ -103,7 +105,7 @@
                editable="true"/>
     <Condition ID="IsFlowStable"
                editable="true"/>
-    <Condition ID="IsMyTurnToGo"
+    <Condition ID="IsNotMyTurn"
                editable="true"/>
     <Condition ID="IsGroupInBottleneck"
            editable="true"/>
