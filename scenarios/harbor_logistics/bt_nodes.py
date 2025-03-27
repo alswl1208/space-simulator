@@ -31,7 +31,7 @@ CUSTOM_CONDITION_NODES = [
     'IsBatterySufficient',
     'IsPathBlocked',
     'IsFlowStable',
-    'IsMyTurnToGo',
+    'IsNotMyTurn',
     'IsGroupInBottleneck'
 ]
 
@@ -150,6 +150,12 @@ class IsFlowStable(SyncAction):
 
     def _check(self, agent, blackboard):
         
+        if getattr(agent.env, "group_created", False):
+            return Status.FAILURE
+
+        if blackboard.get("is_turn_checked", False) and getattr(agent.env, "group_created", False):
+            return Status.SUCCESS
+        
         stopped_positions = [
             a.discrete_position
             for a in agent.env.agents
@@ -175,7 +181,7 @@ class IsFlowStable(SyncAction):
                 return Status.FAILURE
         return Status.SUCCESS
 
-class IsMyTurnToGo(SyncAction):
+class IsNotMyTurn(SyncAction):
     def __init__(self, name, agent):
         super().__init__(name, self._check)
 
@@ -186,16 +192,17 @@ class IsMyTurnToGo(SyncAction):
         current_group = getattr(env, 'current_group_id', 0)
 
         if my_group is None:
-            print(f"[IsMyTurnToGo] Agent {agent.agent_id}: 그룹 정보 없음 → SUCCESS")
+            print(f"[IsNotMyTurn] Agent {agent.agent_id}: 그룹 정보 없음 → SUCCESS")
             return Status.SUCCESS
         
-        if my_group == current_group:
-            blackboard['is_waiting_for_turn'] = False
+        if my_group > current_group:
+            blackboard['is_waiting_for_turn'] = True
             blackboard['is_turn_checked'] = True
             return Status.SUCCESS
         else:
-            blackboard['is_waiting_for_turn'] = True
+            blackboard['is_waiting_for_turn'] = False
             blackboard['is_turn_checked'] = True
+            blackboard['is_stopped'] = False
             return Status.FAILURE
 
 class IsGroupInBottleneck(SyncAction):
@@ -204,6 +211,9 @@ class IsGroupInBottleneck(SyncAction):
         self.threshold = threshold
 
     def _check(self, agent, blackboard):
+        if not getattr(agent.env, "group_created", False):
+            return Status.SUCCESS
+
         env = agent.env
         current_group_id = getattr(env, "current_group_id", 0)
 
@@ -318,6 +328,14 @@ class IsPathBlocked(SyncAction):
             dist_y = abs(agent.discrete_position[1] - other_agent.discrete_position[1])
             node_distance = dist_x + dist_y
 
+            if not other_agent.blackboard.get("is_waiting_for_turn", True) and node_distance <= self.stop_threshold:
+                if agent.agent_id < other_agent.agent_id:
+                    if not agent.blackboard.get("is_stopped", False):
+                        agent.blackboard['is_stopped'] = True
+                        blackboard["is_stopped_by"].add((other_agent.agent_id, agent.agent_id))
+                        print(f"[IsPathBlocked] Agent {agent.agent_id} stopped because Agent {other_agent.agent_id} has the turn")
+                    return Status.FAILURE
+        
             if goal and goal == other_pos and node_distance <= self.stop_threshold:
                 if not agent.blackboard.get("is_stopped", False):
                     agent.blackboard['is_stopped'] = True  # 내 에이전트 정지
@@ -544,13 +562,13 @@ class ControlGroupFlow(SyncAction):
 
     def _control_flow(self, agent, blackboard):
 
-        if blackboard.get("group_created", False):
+        if getattr(agent.env, "group_created", False):
             return Status.SUCCESS
         
         env = agent.env
         candidates = [
             a for a in env.agents
-            if not a.blackboard.get('group_created', False) and a.blackboard.get('goal_type') == 'ship' and a.blackboard.get('waypoints') is not None
+            if a.blackboard.get('goal_type') == 'ship' and a.blackboard.get('waypoints') is not None
         ]
 
         if len(candidates) < self.group_count:
@@ -574,11 +592,11 @@ class ControlGroupFlow(SyncAction):
             for i in range(start, start + size):
                 a, _, _ = agent_paths[i]
                 a.blackboard['group_id'] = group_id
-                a.blackboard['group_created'] = True
                 if hasattr(a, "set_color"):
                     a.set_color(self.color_map[group_id % len(self.color_map)])
                 print(f"[ControlGroupFlow] Agent {a.agent_id} → Group {group_id}")
             start += size
+        agent.env.group_created = True
 
         return Status.SUCCESS
 
@@ -596,10 +614,20 @@ class UpdateGroup(SyncAction):
 
         if env.current_group_id < max_group_id:
             env.current_group_id += 1
+            for a in env.agents:
+                if a.blackboard.get("group_id") == env.current_group_id:
+                    a.blackboard["is_waiting_for_turn"] = False
+                    a.blackboard['is_stopped'] = False
             print(f"[UpdateGroup] 그룹을 {env.current_group_id}로 업데이트")
             return Status.SUCCESS
         else:
             print("[UpdateGroup] 더 이상 업데이트할 그룹이 없음")
+            for a in env.agents:
+                a.blackboard["group_id"] = None
+                a.blackboard["is_waiting_for_turn"] = False
+                a.blackboard["is_turn_checked"] = False
+            agent.env.group_created = False
+            env.current_group_id = 0
             return Status.FAILURE
         
 class GoToShip(SyncAction):
@@ -763,22 +791,26 @@ class WaypointFollower():
                     
         next_waypoint = self.waypoints[self.next_waypoint_index]
 
-        if agent_position == pygame.math.Vector2(next_waypoint):
-           self.next_waypoint_index += 1
-           if self.next_waypoint_index >= len(self.waypoints):
-               self.reset()
-               return Status.SUCCESS
-           next_waypoint = self.waypoints[self.next_waypoint_index]
-        
         #Calculate the Euclidean distance to the next waypoint
         distance = math.sqrt((next_waypoint[0] - agent_position[0])**2 + 
                              (next_waypoint[1] - agent_position[1])**2)
+
+
+        if agent_position == pygame.math.Vector2(next_waypoint):
+            self.next_waypoint_index += 1
+            if self.next_waypoint_index >= len(self.waypoints):
+                self.reset()
+                return Status.SUCCESS
+            else:
+                next_waypoint = self.waypoints[0]
 
         if distance < self.target_arrive_threshold:
             self.next_waypoint_index += 1  # Move to the next waypoint
             if self.next_waypoint_index >= len(self.waypoints):
                 self.reset()
                 return Status.SUCCESS  # Return SUCCESS when all waypoints are visited
+            else:
+                next_waypoint = self.waypoints[0]
 
         agent_position_tuple = (agent_position.x, agent_position.y)
         self.agent.blackboard[remaining_waypoints_key] = [
