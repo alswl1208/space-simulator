@@ -198,15 +198,16 @@ class IsNotMyTurn(SyncAction):
         if my_group > current_group:
             blackboard['is_waiting_for_turn'] = True
             blackboard['is_turn_checked'] = True
+            blackboard['is_stopped'] = True
             return Status.SUCCESS
         else:
             blackboard['is_waiting_for_turn'] = False
             blackboard['is_turn_checked'] = True
             blackboard['is_stopped'] = False
-            return Status.FAILURE
+            return Status.SUCCESS
 
 class IsGroupInBottleneck(SyncAction):
-    def __init__(self, name, agent, threshold=2):
+    def __init__(self, name, agent, threshold=1):
         super().__init__(name, self._check)
         self.threshold = threshold
 
@@ -328,14 +329,6 @@ class IsPathBlocked(SyncAction):
             dist_y = abs(agent.discrete_position[1] - other_agent.discrete_position[1])
             node_distance = dist_x + dist_y
 
-            if not other_agent.blackboard.get("is_waiting_for_turn", True) and node_distance <= self.stop_threshold:
-                if agent.agent_id < other_agent.agent_id:
-                    if not agent.blackboard.get("is_stopped", False):
-                        agent.blackboard['is_stopped'] = True
-                        blackboard["is_stopped_by"].add((other_agent.agent_id, agent.agent_id))
-                        print(f"[IsPathBlocked] Agent {agent.agent_id} stopped because Agent {other_agent.agent_id} has the turn")
-                    return Status.FAILURE
-        
             if goal and goal == other_pos and node_distance <= self.stop_threshold:
                 if not agent.blackboard.get("is_stopped", False):
                     agent.blackboard['is_stopped'] = True  # 내 에이전트 정지
