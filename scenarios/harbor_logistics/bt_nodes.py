@@ -207,7 +207,7 @@ class IsNotMyTurn(SyncAction):
             return Status.SUCCESS
 
 class IsGroupInBottleneck(SyncAction):
-    def __init__(self, name, agent, threshold=1):
+    def __init__(self, name, agent, threshold=2):
         super().__init__(name, self._check)
         self.threshold = threshold
 
@@ -616,7 +616,6 @@ class UpdateGroup(SyncAction):
         else:
             print("[UpdateGroup] 더 이상 업데이트할 그룹이 없음")
             for a in env.agents:
-                a.blackboard["group_id"] = None
                 a.blackboard["is_waiting_for_turn"] = False
                 a.blackboard["is_turn_checked"] = False
             agent.env.group_created = False
