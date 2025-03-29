@@ -231,6 +231,10 @@ class Env(BaseEnv):
                 # agent.draw_path_to_assigned_tasks(screen) 
                 # agent.draw_path_to_destination(screen)                      
 
+        if hasattr(self, 'bottleneck_markers'):
+            for center, radius in self.bottleneck_markers:
+                pygame.draw.circle(self.screen, (255, 0, 0), center, radius, 2)  # 빨간 원
+                
     def save_results(self):
         # Save gif
         if self.save_gif and self.rendering_mode == "Screen":        

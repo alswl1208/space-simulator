@@ -144,11 +144,13 @@ class IsArrivedAtChargingStation(SyncAction):
             return Status.FAILURE
 
 class IsFlowStable(SyncAction):
-    def __init__(self, name, agent, threshold=2):
+    def __init__(self, name, agent, threshold=3, radius=100):
         super().__init__(name, self._check)
         self.threshold = threshold
+        self.radius = radius
 
     def _check(self, agent, blackboard):
+        env = agent.env
         
         if getattr(agent.env, "group_created", False):
             return Status.FAILURE
@@ -156,29 +158,37 @@ class IsFlowStable(SyncAction):
         if blackboard.get("is_turn_checked", False) and getattr(agent.env, "group_created", False):
             return Status.SUCCESS
         
-        stopped_positions = [
-            a.discrete_position
+        stopped_agents = [
+            a
             for a in agent.env.agents
             if a.blackboard.get("is_stopped", False) and a.discrete_position is not None
         ]
 
-        if not stopped_positions:
+        if not stopped_agents:
             return Status.SUCCESS
 
-        G = agent.grid_graph.graph
-        subgraph = G.subgraph(stopped_positions)
+        bottlenecks = []
+        for a1 in stopped_agents:
+            x1, y1 = a1.discrete_position
+            count = 0
+            for a2 in stopped_agents:
+                if a1 == a2:
+                    continue
+                x2, y2 = a2.discrete_position
+                dist = math.hypot(x2 - x1, y2 - y1)
+                if dist <= self.radius:
+                    count += 1
 
-        connected_components = list(nx.connected_components(subgraph))
+            if count >= self.threshold - 1:  # 자기 자신 제외하고 threshold 이상이면 병목
+                bottlenecks.append((x1, y1))
 
-        for comp in connected_components:
-            if len(comp) >= self.threshold:
-                involved_ids = [
-                    a.agent_id for a in agent.env.agents
-                    if a.discrete_position in comp and a.blackboard.get("is_stopped", False)
-                ]
-                print(f"[IsFlowStable] 병목 발생: 연결된 정지 agent 수 = {len(comp)} → FAILURE")
-                print(f"[IsFlowStable] 병목 에이전트 ID: {involved_ids}")
-                return Status.FAILURE
+        if bottlenecks:
+            print(f"[IsFlowStable] 병목 위치 개수: {len(bottlenecks)}")
+            # 병목 반경 시각화용 마커 추가
+            env.bottleneck_markers = [(pos, self.radius) for pos in bottlenecks]
+            return Status.FAILURE
+
+        env.bottleneck_markers = []  # 병목 없으면 비우기
         return Status.SUCCESS
 
 class IsNotMyTurn(SyncAction):
