@@ -95,6 +95,12 @@ class BaseAgent:
         desired = target - self.position
         d = desired.length()
 
+        if d == 0:
+            # 목표 지점이 현재 위치와 같으면 아무 것도 하지 않음
+            self.velocity = pygame.Vector2(0, 0)
+            self.acceleration = pygame.Vector2(0, 0)
+            return
+    
         if d < agent_approaching_to_target_radius:
             # Apply arrival behavior
             desired.normalize_ip()
