@@ -605,36 +605,67 @@ class ControlGroupFlow(SyncAction):
         env = agent.env
         candidates = [
             a for a in env.agents
-            if a.blackboard.get('goal_type') == 'ship' and a.blackboard.get('waypoints') is not None
+            if a.blackboard.get('goal_type') == 'ship' and a.discrete_position is not None and a.blackboard.get('waypoints') is not None
         ]
 
         if len(candidates) < self.group_count:
             print("[ControlGroupFlow] 유효한 후보 agent 수가 부족함 → SKIP")
             return Status.FAILURE
     
-        agent_paths = []
+        agent_infos = []
         for a in candidates:
-            full_path = self.get_full_path(a.blackboard['waypoints'])
-            agent_paths.append((a, len(full_path), full_path))
+            waypoints = a.blackboard['waypoints']
+            goal = waypoints[-1]
+            start = a.discrete_position
+            if start is None or goal is None:
+                continue
+            path = agent.grid_graph.get_shortest_path(start, goal)
+            if not path:
+                continue
+            length = len(path)
+            ship = a.blackboard.get('chosen_ship')
+            print(f"[ControlGroupFlow] Agent {a.agent_id} → 목표 Ship: {ship}, 경로 길이: {length}")
+            agent_infos.append((a, ship, length))
 
-        agent_paths.sort(key=lambda x: (x[1], x[0].agent_id))
+         # 각각 정렬
+        ship1_agents = sorted([info for info in agent_infos if info[1] == 'Ship1'], key=lambda x: (x[2], x[0].agent_id))
+        ship2_agents = sorted([info for info in agent_infos if info[1] == 'Ship2'], key=lambda x: (x[2], x[0].agent_id))
 
-        total = len(agent_paths)
-        base_size = total // self.group_count
-        remainder = total % self.group_count
+        groups = [[] for _ in range(self.group_count)]
+        group_fill_index = 0
+        ship1_idx = 0
+        ship2_idx = 0
 
-        start = 0
-        for group_id in range(self.group_count):
-            size = base_size + (1 if group_id < remainder else 0)
-            for i in range(start, start + size):
-                a, _, _ = agent_paths[i]
+        while ship1_idx < len(ship1_agents) or ship2_idx < len(ship2_agents):
+            for ship_list, ship_name, idx_ref in [
+                (ship1_agents, "Ship1", 'ship1_idx'),
+                (ship2_agents, "Ship2", 'ship2_idx')
+            ]:
+                if ship_list == ship1_agents and ship1_idx < len(ship1_agents):
+                    agent_obj = ship1_agents[ship1_idx][0]
+                    ship1_idx += 1
+                elif ship_list == ship2_agents and ship2_idx < len(ship2_agents):
+                    agent_obj = ship2_agents[ship2_idx][0]
+                    ship2_idx += 1
+                else:
+                    continue
+
+                groups[group_fill_index].append(agent_obj)
+                print(f"[GroupAssignment] {ship_name} Agent {agent_obj.agent_id} → Group {group_fill_index}")
+
+                if len(groups[group_fill_index]) >= len(env.agents) // self.group_count:
+                    group_fill_index += 1
+                    if group_fill_index >= self.group_count:
+                        group_fill_index = 0
+
+        for group_id, group_agents in enumerate(groups):
+            for a in group_agents:
                 a.blackboard['group_id'] = group_id
                 if hasattr(a, "set_color"):
                     a.set_color(self.color_map[group_id % len(self.color_map)])
-                print(f"[ControlGroupFlow] Agent {a.agent_id} → Group {group_id}")
-            start += size
-        agent.env.group_created = True
+                print(f"[ControlGroupFlow] Agent {a.agent_id} 최종 그룹: Group {group_id}")
 
+        env.group_created = True
         return Status.SUCCESS
 
 class UpdateGroup(SyncAction):

@@ -58,6 +58,17 @@ class GridGraph:
 
         return closest_node
 
+    def get_shortest_path(self, start, goal):
+
+        if start not in self.graph.nodes or goal not in self.graph.nodes:
+            return None
+
+        try:
+            path = nx.shortest_path(self.graph, source=start, target=goal)
+            return path
+        except nx.NetworkXNoPath:
+            return None
+    
     def adjust_goal(self, goal):
         """
         goal이 grid_nodes에 없으면 가장 가까운 grid node로 보정한다.
