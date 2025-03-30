@@ -217,9 +217,9 @@ class IsNotMyTurn(SyncAction):
             return Status.SUCCESS
 
 class IsGroupInBottleneck(SyncAction):
-    def __init__(self, name, agent, threshold=2):
+    def __init__(self, name, agent, threshold_ratio=0.5):
         super().__init__(name, self._check)
-        self.threshold = threshold
+        self.threshold_ratio = threshold_ratio
 
     def _check(self, agent, blackboard):
         if not getattr(agent.env, "group_created", False):
@@ -228,34 +228,26 @@ class IsGroupInBottleneck(SyncAction):
         env = agent.env
         current_group_id = getattr(env, "current_group_id", 0)
 
-        stopped_positions = [
-            a.discrete_position
-            for a in env.agents
-            if a.blackboard.get("is_stopped", False)
-            and a.blackboard.get("group_id") == current_group_id
-            and a.discrete_position is not None
+        group_agents = [
+            a for a in env.agents
+            if a.blackboard.get("group_id") == current_group_id
         ]
 
-        if not stopped_positions:
-            return Status.FAILURE 
+        if not group_agents:
+            return Status.FAILURE
 
-        G = agent.grid_graph.graph
-        subgraph = G.subgraph(stopped_positions)
-        connected_components = list(nx.connected_components(subgraph))
+        destination_agents = [
+            a for a in group_agents
+            if a.blackboard.get("goal_type") == "destination"
+        ]
 
-        for comp in connected_components:
-            if len(comp) >= self.threshold:
-                involved_ids = [
-                    a.agent_id for a in env.agents
-                    if a.discrete_position in comp
-                    and a.blackboard.get("group_id") == current_group_id
-                    and a.blackboard.get("is_stopped", False)
-                ]
-                print(f"[IsGroupInBottleneck] 병목 감지: 연결된 정지 agent 수 = {len(comp)} → SUCCESS")
-                print(f"[IsGroupInBottleneck] 병목 에이전트 ID: {involved_ids}")
-                return Status.SUCCESS 
+        ratio = len(destination_agents) / len(group_agents)
 
-        return Status.FAILURE  
+        if ratio >= self.threshold_ratio:
+            print(f"[IsGroupInBottleneck] 그룹 {current_group_id}의 절반 이상이 task 픽업 완료 → SUCCESS")
+            return Status.FAILURE
+
+        return Status.SUCCESS
     
 class IsPathBlocked(SyncAction):
     def __init__(self, name, agent):
