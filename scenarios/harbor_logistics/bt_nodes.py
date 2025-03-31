@@ -144,7 +144,7 @@ class IsArrivedAtChargingStation(SyncAction):
             return Status.FAILURE
 
 class IsFlowStable(SyncAction):
-    def __init__(self, name, agent, threshold=3, radius=100):
+    def __init__(self, name, agent, threshold=4, radius=100):
         super().__init__(name, self._check)
         self.threshold = threshold
         self.radius = radius
@@ -217,7 +217,7 @@ class IsNotMyTurn(SyncAction):
             return Status.SUCCESS
 
 class IsGroupInBottleneck(SyncAction):
-    def __init__(self, name, agent, threshold_ratio=0.7):
+    def __init__(self, name, agent, threshold_ratio=0.5):
         super().__init__(name, self._check)
         self.threshold_ratio = threshold_ratio
 
@@ -381,23 +381,55 @@ class IsPathBlocked(SyncAction):
             #         agent.blackboard['is_stopped'] = False
             #         return Status.FAILURE
             
-            if node_distance <= self.stop_threshold and not blackboard.get("is_stopped", False) and blackboard.get("popped_waypoint", False):
-                blackboard['request_new_path'] = True  
-                other_agent.blackboard['is_stopped'] = True
-                #other_agent.blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id)) 
-                blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
-                print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
-                return Status.FAILURE
+            if node_distance <= self.stop_threshold and not blackboard.get("is_stopped", False) and (
+                blackboard.get("popped_waypoint", False) or common_nodes
+            ):
+                agent_goal = blackboard.get("goal_type")
+                other_goal = other_agent.blackboard.get("goal_type")
+                
+                if agent_goal == "destination" and other_goal == "ship":
+                    other_agent.blackboard['is_stopped'] = True
+                    blackboard['request_new_path'] = True 
+                    blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+                    print(f"[IsPathBlocked] dest 우선 → Agent {other_agent.agent_id} 정지")
+                    return Status.FAILURE
+                elif agent_goal == "ship" and other_goal == "destination":
+                    blackboard['is_stopped'] = True
+                    other_agent.blackboard['request_new_path'] = True 
+                    blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+                    print(f"[IsPathBlocked] dest 우선 → Agent {agent.agent_id} 정지")
+                    return Status.FAILURE
 
-            if node_distance <= self.stop_threshold and common_nodes and not blackboard.get("is_stopped", False):
-                blackboard['request_new_path'] = True  
-                other_agent.blackboard['is_stopped'] = True  
-                #other_agent.blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
-                blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
-                print(f"[IsPathBlocked]  Agent {agent.agent_id}: {other_agent.agent_id}와 가까움 → 재계획 요청 & {other_agent.agent_id} 정지")
-                return Status.FAILURE
+                if agent_goal == other_goal and agent_goal in ["destination", "ship"]:
+                    agent_path_len = len(self.get_full_path(agent, blackboard.get('waypoints', [])))
+                    other_path_len = len(self.get_full_path(other_agent, other_agent.blackboard.get('waypoints', [])))
 
-
+                    if agent_path_len > other_path_len:
+                        blackboard['is_stopped'] = True
+                        other_agent.blackboard['request_new_path'] = True 
+                        blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+                        print(f"[IsPathBlocked] {other_agent.agent_id}가 goal 더 가까움 → Agent {agent.agent_id} 정지")
+                        return Status.FAILURE
+                    elif agent_path_len < other_path_len:
+                        other_agent.blackboard['is_stopped'] = True
+                        blackboard['request_new_path'] = True 
+                        blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+                        print(f"[IsPathBlocked] Agent {agent.agent_id}가 goal 더 가까움 → Agent {other_agent.agent_id} 정지")
+                        return Status.FAILURE
+                    else:
+                        if agent.agent_id > other_agent.agent_id:
+                            blackboard['is_stopped'] = True
+                            other_agent.blackboard['request_new_path'] = True 
+                            blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+                            print(f"[IsPathBlocked] 길이 같음 + ID 낮은 쪽 우선 → Agent {agent.agent_id} 정지")
+                            return Status.FAILURE
+                        else:
+                            other_agent.blackboard['is_stopped'] = True
+                            blackboard['request_new_path'] = True 
+                            blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+                            print(f"[IsPathBlocked] 길이 같음 + ID 낮은 쪽 우선 → Agent {other_agent.agent_id} 정지")
+                            return Status.FAILURE
+        
             if not other_agent.blackboard.get('is_stopped', False) and blackboard["is_stopped_by"]:
                 to_remove = set()
                 for (agent_id, other_id) in blackboard["is_stopped_by"]:
