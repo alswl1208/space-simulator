@@ -217,7 +217,7 @@ class IsNotMyTurn(SyncAction):
             return Status.SUCCESS
 
 class IsGroupInBottleneck(SyncAction):
-    def __init__(self, name, agent, threshold_ratio=0.5):
+    def __init__(self, name, agent, threshold_ratio=0.7):
         super().__init__(name, self._check)
         self.threshold_ratio = threshold_ratio
 
@@ -335,26 +335,26 @@ class IsPathBlocked(SyncAction):
             dist_y = abs(agent.discrete_position[1] - other_agent.discrete_position[1])
             node_distance = dist_x + dist_y
 
-            # # 둘 다 Ship1 진입 노드에 있고 goal_type이 ship일 때만 적용
+            # # # 둘 다 Ship1 진입 노드에 있고 goal_type이 ship일 때만 적용
             # if (
             #     agent.discrete_position in agent.env.ship1_entry_nodes and
-            #     other_agent.discrete_position in agent.env.ship1_entry_nodes and
-            #     blackboard.get("goal_type") == "ship" and
-            #     other_agent.blackboard.get("goal_type") == "ship" and
-            #     blackboard.get("chosen_ship") == other_agent.blackboard.get("chosen_ship")
+            #     other_agent.discrete_position in agent.env.ship1_entry_nodes
+            #     # blackboard.get("goal_type") == "ship" and
+            #     # other_agent.blackboard.get("goal_type") == "ship" and
+            #     # blackboard.get("chosen_ship") == other_agent.blackboard.get("chosen_ship")
             # ):
             #     if agent.agent_id > other_agent.agent_id:
             #         blackboard['is_stopped'] = True
             #         print(f"[IsPathBlocked] Agent {agent.agent_id} 정지 (Ship1 진입, goal_type=ship, ID 우선순위)")
             #         return Status.FAILURE
 
-            # # Ship2도 동일하게
+            # # # Ship2도 동일하게
             # if (
             #     agent.discrete_position in agent.env.ship2_entry_nodes and
-            #     other_agent.discrete_position in agent.env.ship2_entry_nodes and
-            #     blackboard.get("goal_type") == "ship" and
-            #     other_agent.blackboard.get("goal_type") == "ship" and
-            #     blackboard.get("chosen_ship") == other_agent.blackboard.get("chosen_ship")
+            #     other_agent.discrete_position in agent.env.ship2_entry_nodes
+            #     # blackboard.get("goal_type") == "ship" and
+            #     # other_agent.blackboard.get("goal_type") == "ship" and
+            #     # blackboard.get("chosen_ship") == other_agent.blackboard.get("chosen_ship")
             # ):
             #     if agent.agent_id > other_agent.agent_id:
             #         blackboard['is_stopped'] = True
@@ -541,6 +541,11 @@ class PlanPath(SyncAction):
             return Status.FAILURE
         
         goal = agent.grid_graph.adjust_goal(goal)
+        
+        # 목적지가 destination이면 중앙 진입 노드를 회피하도록 설정
+        avoid_nodes = []
+        if goal_type == 'destination':
+            avoid_nodes = getattr(agent.env, "central_entry_nodes", [])
 
         # for other_agent in agent.env.agents:
         #     if other_agent.discrete_position == goal and other_agent.blackboard.get('is_stopped', False) and other_agent.discrete_position == start:
@@ -549,9 +554,9 @@ class PlanPath(SyncAction):
   
         if blackboard.get('request_new_path', False):
             #print(f"[PlanPath] Agent {agent.agent_id}: 충돌 감지 → 대체 경로 탐색 시도!")
-            waypoints = self.path_planner.generate(start, goal, agent, avoid_previous=blackboard.get('request_new_path', False))
+            waypoints = self.path_planner.generate(start, goal, agent, avoid_nodes=avoid_nodes, avoid_previous=blackboard.get('request_new_path', False))
         else:
-            waypoints = self.path_planner.generate(start, goal, agent)
+            waypoints = self.path_planner.generate(start, goal, agent, avoid_nodes=avoid_nodes)
         
         if not waypoints:
             print(f"[PlanPath] Agent {agent.agent_id}: Failed to generate path!")

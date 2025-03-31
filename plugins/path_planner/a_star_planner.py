@@ -17,8 +17,14 @@ class AStarPlanner:
     #     closest_node = min(graph_nodes, key=lambda node: (node[0] - position[0])**2 + (node[1] - position[1])**2)
     #     return closest_node
 
-    def generate(self, start, goal, agent, avoid_previous=False):
+    def generate(self, start, goal, agent, avoid_previous=False, avoid_nodes=None):
         """A* 알고리즘을 사용하여 최단 경로 생성"""
+        
+        if avoid_nodes is None:
+            avoid_nodes = set()
+        else:
+            avoid_nodes = set(avoid_nodes)
+        
         graph = self.grid_graph.graph.copy()
 
         # 튜플 변환 보장
@@ -31,8 +37,6 @@ class AStarPlanner:
         #     start = min(graph.nodes, key=lambda node: (node[0] - start[0])**2 + (node[1] - start[1])**2)
         if goal not in self.grid_graph.grid_nodes:
             goal = min(self.grid_graph.grid_nodes, key=lambda node: (node[0] - goal[0])**2 + (node[1] - goal[1])**2)
-
-        avoid_nodes = set()
 
         for other_agent in agent.env.agents:
             if other_agent == agent:  # 자기 자신 제외

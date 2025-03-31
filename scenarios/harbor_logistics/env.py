@@ -28,6 +28,7 @@ class Env(BaseEnv):
         self.grid_graph = GridGraph(self.grid_nodes, self.grid_size)
 
         self.set_ship_entry_nodes()
+        self.set_central_entry_nodes()
 
         # Initialize agents and tasks
         self.tasks = generate_tasks()
@@ -90,8 +91,38 @@ class Env(BaseEnv):
             self.destination_positions.append((start_x + i * x_spacing, start_y))       # 첫 번째 행
             self.destination_positions.append((start_x + i * x_spacing, start_y + y_spacing))  # 두 번째 행
 
+    def set_central_entry_nodes(self):
+        # 목적지의 y 좌표 추출 (예: 300, 680)
+        y_coords = [pos[1] for pos in self.destination_positions]
+        y_coords = sorted(set(y_coords))
+        
+        if len(y_coords) < 2:
+            print("[CentralEntry] destination 행이 2개 이상이 아닙니다.")
+            self.central_entry_nodes = []
+            return
+
+        y1, y2 = y_coords
+        dest_half_height = 145  # destination 이미지 절반 높이 (290 / 2)
+
+        y_min = y1 + dest_half_height   # 첫 행 컨테이너의 아래쪽 끝
+        y_max = y2 - dest_half_height   # 두 번째 행 컨테이너의 위쪽 끝
+
+        # 목적지의 x 좌표들만 추출
+        x_coords = [pos[0] for pos in self.destination_positions]
+        x_min = min(x_coords) - 40   # 이미지 중심 기준 너비 절반
+        x_max = max(x_coords) + 40
+
+        entry_nodes = []
+        for node in self.grid_graph.graph.nodes:
+            x, y = node
+            if x_min <= x <= x_max and y_min <= y <= y_max:
+                entry_nodes.append(node)
+
+        self.central_entry_nodes = entry_nodes
+        print(f"[CentralEntry] 중앙 진입 노드 개수: {len(entry_nodes)}")
+
     def set_ship_entry_nodes(self):
-        # Ship 중심 노드 정의 (config에서 직접 가져오기)
+
         ship1_pos = (
             config["tasks"]["locations1"]["x_min"],
             config["tasks"]["locations1"]["y_min"]
@@ -104,7 +135,6 @@ class Env(BaseEnv):
         self.ship1_node = self.grid_graph.find_closest_grid_node(ship1_pos)
         self.ship2_node = self.grid_graph.find_closest_grid_node(ship2_pos)
 
-        # 진입 노드 계산 (위/아래/왼/오 네 방향)
         ship1_neighbors = [
             (self.ship1_node[0] + self.grid_size, self.ship1_node[1]),
             (self.ship1_node[0] - self.grid_size, self.ship1_node[1]),
@@ -189,6 +219,10 @@ class Env(BaseEnv):
         #     print(f"New Task {new_task.task_id_start} generated at {new_task.position}")
         # elif len(tasks) == max_task_count and tasks_left == 0:
         #     mission_completed = True  # 모든 작업이 완료되면 미션 종료
+        remaining_tasks = len([task for task in self.tasks if not task.completed])
+        if not self.mission_completed and remaining_tasks == 0:
+            self.mission_completed = True
+            print(f"\n [Simulation Complete] All tasks done at simulation time: {self.simulation_time:.2f} seconds\n")
 
     def draw_grid(self):
         """
@@ -263,6 +297,11 @@ class Env(BaseEnv):
 
         for node in self.ship2_entry_nodes:
             pygame.draw.circle(self.screen, (0, 255, 0), node, 6)
+
+        # # 중앙 진입 노드 표시
+        # if hasattr(self, "central_entry_nodes"):
+        #     for node in self.central_entry_nodes:
+        #         pygame.draw.circle(self.screen, (255, 255, 0), node, 6)
 
     def draw_agents_info(self):
         super().draw_agents_info()
