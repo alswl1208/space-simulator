@@ -335,51 +335,51 @@ class IsPathBlocked(SyncAction):
             dist_y = abs(agent.discrete_position[1] - other_agent.discrete_position[1])
             node_distance = dist_x + dist_y
 
-            # 둘 다 Ship1 진입 노드에 있고 goal_type이 ship일 때만 적용
-            if (
-                agent.discrete_position in agent.env.ship1_entry_nodes and
-                other_agent.discrete_position in agent.env.ship1_entry_nodes and
-                blackboard.get("goal_type") == "ship" and
-                other_agent.blackboard.get("goal_type") == "ship" and
-                blackboard.get("chosen_ship") == other_agent.blackboard.get("chosen_ship")
-            ):
-                if agent.agent_id > other_agent.agent_id:
-                    blackboard['is_stopped'] = True
-                    print(f"[IsPathBlocked] Agent {agent.agent_id} 정지 (Ship1 진입, goal_type=ship, ID 우선순위)")
-                    return Status.FAILURE
+            # # 둘 다 Ship1 진입 노드에 있고 goal_type이 ship일 때만 적용
+            # if (
+            #     agent.discrete_position in agent.env.ship1_entry_nodes and
+            #     other_agent.discrete_position in agent.env.ship1_entry_nodes and
+            #     blackboard.get("goal_type") == "ship" and
+            #     other_agent.blackboard.get("goal_type") == "ship" and
+            #     blackboard.get("chosen_ship") == other_agent.blackboard.get("chosen_ship")
+            # ):
+            #     if agent.agent_id > other_agent.agent_id:
+            #         blackboard['is_stopped'] = True
+            #         print(f"[IsPathBlocked] Agent {agent.agent_id} 정지 (Ship1 진입, goal_type=ship, ID 우선순위)")
+            #         return Status.FAILURE
 
-            # Ship2도 동일하게
-            if (
-                agent.discrete_position in agent.env.ship2_entry_nodes and
-                other_agent.discrete_position in agent.env.ship2_entry_nodes and
-                blackboard.get("goal_type") == "ship" and
-                other_agent.blackboard.get("goal_type") == "ship" and
-                blackboard.get("chosen_ship") == other_agent.blackboard.get("chosen_ship")
-            ):
-                if agent.agent_id > other_agent.agent_id:
-                    blackboard['is_stopped'] = True
-                    print(f"[IsPathBlocked] Agent {agent.agent_id} 정지 (Ship2 진입, goal_type=ship, ID 우선순위)")
-                    return Status.FAILURE
+            # # Ship2도 동일하게
+            # if (
+            #     agent.discrete_position in agent.env.ship2_entry_nodes and
+            #     other_agent.discrete_position in agent.env.ship2_entry_nodes and
+            #     blackboard.get("goal_type") == "ship" and
+            #     other_agent.blackboard.get("goal_type") == "ship" and
+            #     blackboard.get("chosen_ship") == other_agent.blackboard.get("chosen_ship")
+            # ):
+            #     if agent.agent_id > other_agent.agent_id:
+            #         blackboard['is_stopped'] = True
+            #         print(f"[IsPathBlocked] Agent {agent.agent_id} 정지 (Ship2 진입, goal_type=ship, ID 우선순위)")
+            #         return Status.FAILURE
                     
-            if (
-                agent.discrete_position == agent.env.ship1_node and other_agent.discrete_position in agent.env.ship1_entry_nodes
-            ):
-                if not other_agent.blackboard.get("is_stopped", False):
-                    other_agent.blackboard['is_stopped'] = True
-                    other_agent.blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
-                    print(f"[IsPathBlocked] Agent {other_agent.agent_id} stopped near Ship1 entry because of Agent {agent.agent_id}")
-                    agent.blackboard['is_stopped'] = False
-                    return Status.FAILURE
+            # if (
+            #     agent.discrete_position == agent.env.ship1_node and other_agent.discrete_position in agent.env.ship1_entry_nodes
+            # ):
+            #     if not other_agent.blackboard.get("is_stopped", False):
+            #         other_agent.blackboard['is_stopped'] = True
+            #         other_agent.blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+            #         print(f"[IsPathBlocked] Agent {other_agent.agent_id} stopped near Ship1 entry because of Agent {agent.agent_id}")
+            #         agent.blackboard['is_stopped'] = False
+            #         return Status.FAILURE
                 
-            if (
-                agent.discrete_position == agent.env.ship2_node and other_agent.discrete_position in agent.env.ship2_entry_nodes
-            ):
-                if not other_agent.blackboard.get("is_stopped", False):
-                    other_agent.blackboard['is_stopped'] = True
-                    other_agent.blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
-                    print(f"[IsPathBlocked] Agent {other_agent.agent_id} stopped near Ship2 entry because of Agent {agent.agent_id}")
-                    agent.blackboard['is_stopped'] = False
-                    return Status.FAILURE
+            # if (
+            #     agent.discrete_position == agent.env.ship2_node and other_agent.discrete_position in agent.env.ship2_entry_nodes
+            # ):
+            #     if not other_agent.blackboard.get("is_stopped", False):
+            #         other_agent.blackboard['is_stopped'] = True
+            #         other_agent.blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+            #         print(f"[IsPathBlocked] Agent {other_agent.agent_id} stopped near Ship2 entry because of Agent {agent.agent_id}")
+            #         agent.blackboard['is_stopped'] = False
+            #         return Status.FAILURE
             
             if node_distance <= self.stop_threshold and not blackboard.get("is_stopped", False) and blackboard.get("popped_waypoint", False):
                 blackboard['request_new_path'] = True  
@@ -664,7 +664,7 @@ class ControlGroupFlow(SyncAction):
                 if hasattr(a, "set_color"):
                     a.set_color(self.color_map[group_id % len(self.color_map)])
                 print(f"[ControlGroupFlow] Agent {a.agent_id} 최종 그룹: Group {group_id}")
-
+        
         env.group_created = True
         return Status.SUCCESS
 
