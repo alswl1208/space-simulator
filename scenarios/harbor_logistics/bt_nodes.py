@@ -378,7 +378,17 @@ class IsPathBlocked(SyncAction):
             ):
                 agent_goal = blackboard.get("goal_type")
                 other_goal = other_agent.blackboard.get("goal_type")
-                
+                current_group = getattr(agent.env, "current_group_id", 0)
+                agent_group = blackboard.get("group_id")
+                other_group = other_agent.blackboard.get("group_id")
+
+                if agent_group == current_group and other_group is not None and other_group > current_group:
+                    other_agent.blackboard['is_stopped'] = True
+                    blackboard['request_new_path'] = True 
+                    blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
+                    print(f"[IsPathBlocked] 상대가 아직 turn 안 된 그룹임 → Agent {other_agent.agent_id} 정지")
+                    return Status.FAILURE
+
                 if agent_goal == "destination" and other_goal == "ship":
                     other_agent.blackboard['is_stopped'] = True
                     blackboard['request_new_path'] = True 
