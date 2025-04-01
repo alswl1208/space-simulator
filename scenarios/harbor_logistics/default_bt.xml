@@ -50,13 +50,13 @@
                       <PlanPath goal_type="ship"/>
                     </Fallback>
                     <GoToShip/>
-                    <Fallback>
-                      <IsGroupInBottleneck/> 
-                      <UpdateGroup/>
-                    </Fallback>
                   </Sequence>
                 </Fallback>
                 <PickItem/>
+                <Fallback>
+                  <IsGroupInBottleneck/> 
+                  <UpdateGroup/>
+                </Fallback>
               </Sequence>
             </Fallback>
             <Fallback>

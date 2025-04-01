@@ -217,9 +217,8 @@ class IsNotMyTurn(SyncAction):
             return Status.SUCCESS
 
 class IsGroupInBottleneck(SyncAction):
-    def __init__(self, name, agent, threshold_ratio=0.5):
+    def __init__(self, name, agent):
         super().__init__(name, self._check)
-        self.threshold_ratio = threshold_ratio
 
     def _check(self, agent, blackboard):
         if not getattr(agent.env, "group_created", False):
@@ -236,18 +235,11 @@ class IsGroupInBottleneck(SyncAction):
         if not group_agents:
             return Status.FAILURE
 
-        destination_agents = [
-            a for a in group_agents
-            if a.blackboard.get("goal_type") == "destination"
-        ]
+        for a in group_agents:
+            if not a.blackboard.get("update_condition", False):
+                return Status.SUCCESS
 
-        ratio = len(destination_agents) / len(group_agents)
-
-        if ratio >= self.threshold_ratio:
-            print(f"[IsGroupInBottleneck] 그룹 {current_group_id}의 절반 이상이 task 픽업 완료 → SUCCESS")
-            return Status.FAILURE
-
-        return Status.SUCCESS
+        return Status.FAILURE
     
 class IsPathBlocked(SyncAction):
     def __init__(self, name, agent):
@@ -957,7 +949,7 @@ class PickItem(SyncAction):
         agent.update_image()
         blackboard['waypoints'] = None
         blackboard['goal_type'] = 'destination'  
-               
+        blackboard['update_condition'] = True
         return Status.SUCCESS
 
 class PlaceItem(SyncAction):
