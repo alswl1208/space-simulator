@@ -6,6 +6,7 @@ max_generations = dynamic_task_generation.get('max_generations', 0) if dynamic_t
 tasks_per_generation = dynamic_task_generation.get('tasks_per_generation', 0) if dynamic_task_generation.get('enabled', False) else 0
 
 from modules.base_task import BaseTask
+from scenarios.harbor_logistics.grid_graph import GridGraph 
 
 # TODO: 아래 Refactoring 필요
 screen_width = config['simulation']['screen_width']
@@ -24,6 +25,23 @@ task_colors = [
     'white', 
     'gray', 
     'brown'
+]
+
+destination_grid_nodes = [
+    (400, 200),   # red
+    (400, 770),   # blue
+    (520, 180),   # yellow
+    (520, 770),   # green
+    (640, 200),   # lime
+    (640, 770),   # teal
+    (760, 180),   # purple
+    (760, 770),   # pink
+    (880, 180),   # coral
+    (880, 770),   # skyblue
+    (1000, 180),  # black
+    (1000, 770),  # white
+    (1080, 180),  # gray
+    (1080, 770)   # brown
 ]
 
 # container 크기로 이미지를 조정
@@ -69,7 +87,7 @@ class Task(BaseTask):
         self.assigned_to = None
         random_index = random.randrange(len(task_colors))
         self.color = task_colors[random_index]
-        self.position_to_deliver = destination_positions[random_index]
+        self.position_to_deliver = destination_grid_nodes[random_index]
              
         self.image = pygame.transform.scale(task_images[self.color], (task_width, task_height))
         self.ship_id = ship_id  # Ship ID 추가
