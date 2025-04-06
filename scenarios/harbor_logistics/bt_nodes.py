@@ -144,7 +144,7 @@ class IsArrivedAtChargingStation(SyncAction):
             return Status.FAILURE
 
 class IsFlowStable(SyncAction):
-    def __init__(self, name, agent, threshold=4, radius=100):
+    def __init__(self, name, agent, threshold=10, radius=100):
         super().__init__(name, self._check)
         self.threshold = threshold
         self.radius = radius
@@ -305,7 +305,7 @@ class IsPathBlocked(SyncAction):
         if agent.discrete_position is None:
             return Status.SUCCESS
         
-        goal = current_path[-1] if current_path else None
+        # goal = current_path[-1] if current_path else None
 
         for other_agent in agent.env.agents:
             if other_agent == agent or other_agent.discrete_position is None:
@@ -313,9 +313,9 @@ class IsPathBlocked(SyncAction):
             
             other_pos = other_agent.discrete_position
 
-            if agent.discrete_position in [agent.env.ship1_node, agent.env.ship2_node] or \
-                other_agent.discrete_position in [agent.env.ship1_node, agent.env.ship2_node]:
-                    continue
+            # if agent.discrete_position in [agent.env.ship1_node, agent.env.ship2_node] or \
+            #     other_agent.discrete_position in [agent.env.ship1_node, agent.env.ship2_node]:
+            #         continue
 
             other_path = self.get_full_path(other_agent, other_agent.blackboard.get('waypoints', []))
             if not other_path:
@@ -327,45 +327,25 @@ class IsPathBlocked(SyncAction):
             dist_y = abs(agent.discrete_position[1] - other_agent.discrete_position[1])
             node_distance = dist_x + dist_y
 
-            # # # # 둘 다 Ship1 진입 노드에 있고 goal_type이 ship일 때만 적용
-            if (
-                agent.discrete_position in agent.env.ship1_entry_nodes and
-                other_agent.discrete_position in agent.env.ship1_entry_nodes
-            ):
-                if agent.agent_id > other_agent.agent_id and not other_agent.blackboard.get("is_stopped", False):
-                    blackboard['is_stopped'] = True
-                    blackboard["is_stopped_by"].add((other_agent.agent_id, agent.agent_id))
-                    print(f"[IsPathBlocked] Agent {agent.agent_id} 정지 (Ship1 진입, goal_type=ship, ID 우선순위)")
-                    return Status.FAILURE
+            ship_nodes = [agent.env.ship1_node, agent.env.ship2_node]
+            for ship_node in ship_nodes:
+                for ship_agent in agent.env.agents:
+                    if ship_agent.discrete_position == ship_node:
+                        # ship에 있는 agent 발견 시
+                        for other_agent in agent.env.agents:
+                            if other_agent == ship_agent or other_agent.discrete_position is None:
+                                continue
 
-            if (
-                agent.discrete_position == agent.env.ship1_node and other_agent.discrete_position in agent.env.ship1_entry_nodes
-            ):
-                if not other_agent.blackboard.get("is_stopped", False) and not blackboard.get("is_stopped", False):
-                    other_agent.blackboard['is_stopped'] = True
-                    other_agent.blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
-                    print(f"[IsPathBlocked] Agent {other_agent.agent_id} stopped near Ship1 entry because of Agent {agent.agent_id}")
-                    return Status.FAILURE
-                
-            # # # Ship2도 동일하게
-            if (
-                agent.discrete_position in agent.env.ship2_entry_nodes and
-                other_agent.discrete_position in agent.env.ship2_entry_nodes
-            ):
-                if agent.agent_id > other_agent.agent_id and not other_agent.blackboard.get("is_stopped", False):
-                    blackboard['is_stopped'] = True
-                    blackboard["is_stopped_by"].add((other_agent.agent_id, agent.agent_id))
-                    print(f"[IsPathBlocked] Agent {agent.agent_id} 정지 (Ship2 진입, goal_type=ship, ID 우선순위)")
-                    return Status.FAILURE
+                            dist_x = abs(ship_node[0] - other_agent.discrete_position[0])
+                            dist_y = abs(ship_node[1] - other_agent.discrete_position[1])
+                            node_distance = dist_x + dist_y
 
-            if (
-                agent.discrete_position == agent.env.ship2_node and other_agent.discrete_position in agent.env.ship2_entry_nodes
-            ):
-                if not other_agent.blackboard.get("is_stopped", False) and not blackboard.get("is_stopped", False):
-                    other_agent.blackboard['is_stopped'] = True
-                    other_agent.blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
-                    print(f"[IsPathBlocked] Agent {other_agent.agent_id} stopped near Ship2 entry because of Agent {agent.agent_id}")
-                    return Status.FAILURE
+                            if node_distance < self.stop_threshold:
+                                ship_agent.blackboard['is_stopped'] = False
+                                other_agent.blackboard['is_stopped'] = True
+                                ship_agent.blackboard['request_new_path'] = True
+                                other_agent.blackboard['is_stopped_by'].add((ship_agent.agent_id, other_agent.agent_id))
+                                print(f"[IsPathBlocked] Ship에 있는 Agent {ship_agent.agent_id} 우선 → Agent {other_agent.agent_id} 정지")
             
             if node_distance <= self.stop_threshold and not blackboard.get("is_stopped", False) and (
                 blackboard.get("popped_waypoint", False) or common_nodes
@@ -427,7 +407,7 @@ class IsPathBlocked(SyncAction):
                                 blackboard["is_stopped_by"].add((agent.agent_id, other_agent.agent_id))
                                 print(f"[IsPathBlocked] 길이 같음 + ID 낮은 쪽 우선 → {agent.agent_id} 이동, Agent {other_agent.agent_id} 정지")
                                 return Status.FAILURE
-        
+
             if  not other_agent.blackboard.get('is_stopped', False) and blackboard["is_stopped_by"]:
                 to_remove = set()
                 for (agent_id, other_id) in blackboard["is_stopped_by"]:
@@ -450,6 +430,9 @@ class IsPathBlocked(SyncAction):
                             
                         if resume_distance >= self.resume_threshold:
                             to_remove.add((agent_id, other_id))
+                    
+                    if stopping_agent.blackboard.get("waypoints") is None:
+                        to_remove.add((agent_id, other_id))
                 
                 for stop_pair in to_remove:
                     if stop_pair in blackboard["is_stopped_by"]:
@@ -460,6 +443,7 @@ class IsPathBlocked(SyncAction):
                         stopped_agent = next((a for a in agent.env.agents if a.agent_id == other_id), None)
                         if stopped_agent:
                             stopped_agent.blackboard['is_stopped'] = False
+                            stopped_agent.blackboard['request_new_path'] = True
         return Status.SUCCESS
 
 # Action nodes
